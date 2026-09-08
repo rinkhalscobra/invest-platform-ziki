@@ -72,7 +72,14 @@ export const useAuth = () => {
   const signIn = (email: string, password: string) =>
     supabase.auth.signInWithPassword({ email, password });
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      // A password change can invalidate the remote refresh token before the UI
+      // has cleared it. Local sign-out still removes that stale browser session.
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+  };
 
   const updatePassword = (newPassword: string) =>
     supabase.auth.updateUser({ password: newPassword });

@@ -229,6 +229,9 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
   const [supportReply, setSupportReply] = useState('');
   const [editingRecord, setEditingRecord] = useState<{ table: string; title: string; row: JsonRow } | null>(null);
   const [recordForm, setRecordForm] = useState<Record<string, string | boolean>>({});
+  const [currentAdminId, setCurrentAdminId] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const showError = (error: unknown) => {
     const text = error instanceof Error ? error.message : 'The CRM request failed';
@@ -318,6 +321,12 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
   }, [loadUsers, search]);
 
   useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id || ''));
+  }, []);
+
+  useEffect(() => {
+    setNewPassword('');
+    setDeleteConfirmation('');
     if (selectedUserId) void loadWorkspace(selectedUserId);
     else setWorkspace(null);
   }, [loadWorkspace, selectedUserId]);
@@ -413,6 +422,106 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
     if (!error) setNotification('');
     return { error };
   }, 'Notification sent');
+
+  const invokeAdminUserAction = async (body: Record<string, unknown>) => {
+    const callWithToken = async (accessToken: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-user-management', {
+        body,
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (error) {
+        let detail = error.message.includes('Failed to send a request')
+          ? 'The admin-user-management Supabase function is not deployed or cannot be reached.'
+          : error.message;
+        let status: number | undefined;
+        const response = (error as { context?: Response }).context;
+        if (response instanceof Response) {
+          status = response.status;
+          try {
+            const payload = await response.clone().json() as { error?: string };
+            detail = payload.error || detail;
+          } catch {
+            // Preserve the SDK error when the response has no JSON body.
+          }
+        }
+        return { error: { message: detail }, status };
+      }
+      const payload = data as { error?: string } | null;
+      return { error: payload?.error ? { message: payload.error } : null, status: 200 };
+    };
+
+    const { data: sessionResult } = await supabase.auth.getSession();
+    if (!sessionResult.session) return { error: { message: 'Administrator session expired. Sign in again.' } };
+
+    let result = await callWithToken(sessionResult.session.access_token);
+    if (result.status === 401) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshed.session) {
+        return { error: { message: 'Administrator session expired. Sign out and sign in again with the current password.' } };
+      }
+      result = await callWithToken(refreshed.session.access_token);
+    }
+    return { error: result.error };
+  };
+
+  const changeAuthPassword = async () => {
+    if (!selectedUserId) return;
+    const changingOwnPassword = selectedUserId === currentAdminId;
+    setSaving('auth-password');
+    setMessage(null);
+    try {
+      const result = await invokeAdminUserAction({
+        action: 'set_password',
+        target_user_id: selectedUserId,
+        password: newPassword,
+        reason
+      });
+      if (result.error) throw new Error(result.error.message);
+      setNewPassword('');
+      if (changingOwnPassword) {
+        window.alert('Your administrator password was changed. Sign in again with the new password.');
+        await supabase.auth.signOut({ scope: 'local' });
+        navigate('/auth', { replace: true });
+        return;
+      }
+      setMessage({ type: 'success', text: 'Supabase Auth password changed' });
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const deleteUserPermanently = async () => {
+    if (!selectedUserId || !workspace?.profile) return;
+    const targetEmail = workspace.profile.email;
+    if (deleteConfirmation.trim().toLowerCase() !== targetEmail.toLowerCase()) {
+      setMessage({ type: 'error', text: `Enter ${targetEmail} exactly to confirm deletion.` });
+      return;
+    }
+    if (!window.confirm(`Permanently delete ${targetEmail} and all associated account data? This cannot be undone.`)) return;
+
+    setSaving('delete-user');
+    setMessage(null);
+    try {
+      const result = await invokeAdminUserAction({
+        action: 'delete_user',
+        target_user_id: selectedUserId,
+        confirmation_email: deleteConfirmation,
+        reason
+      });
+      if (result.error) throw new Error(result.error.message);
+      setWorkspace(null);
+      setSelectedUserId(null);
+      setDeleteConfirmation('');
+      setMessage({ type: 'success', text: `${targetEmail} and all associated account data were deleted.` });
+      await loadUsers(search);
+    } catch (error) {
+      showError(error);
+    } finally {
+      setSaving(null);
+    }
+  };
 
   const sendSupportReply = () => runMutation('support-reply', async () => {
     const { error } = await supabase.rpc('admin_send_support_message', {
@@ -689,6 +798,25 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                       </div>
                     </section>
                     <button onClick={saveProfile} disabled={saving !== null} className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-50 lg:col-span-2">{saving === 'profile' ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}Save profile controls</button>
+                    <section className={`${panelClass} p-5`}>
+                      <h3 className="font-semibold text-white">Supabase Auth password</h3>
+                      <p className="mb-4 mt-1 text-xs text-slate-500">Set a new sign-in password for this customer. The password is never stored in the CRM audit log.</p>
+                      {profile.id === currentAdminId && <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">This is your current administrator account. After changing its password, you will be signed out and must log in with the new password.</div>}
+                      <input type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={event => setNewPassword(event.target.value)} placeholder="New password (minimum 8 characters)" className={fieldClass} />
+                      <button onClick={() => void changeAuthPassword()} disabled={saving !== null || newPassword.length < 8 || !reason.trim()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 font-semibold text-white disabled:opacity-50">{saving === 'auth-password' ? <Loader2 className="animate-spin" size={17} /> : <ShieldCheck size={17} />}Change Auth password</button>
+                    </section>
+                    <section className="rounded-2xl border border-red-500/35 bg-red-500/[0.07] p-5 shadow-xl shadow-black/10">
+                      <h3 className="font-semibold text-red-200">Delete customer permanently</h3>
+                      <p className="mb-4 mt-1 text-xs text-red-200/60">Deletes the Supabase Auth identity and cascades cleanup across this customer's wallet, robot, orders, positions, deposits, staking, events, referrals, messages and profile.</p>
+                      {profile.id === currentAdminId ? (
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">Your current administrator account cannot delete itself.</div>
+                      ) : (
+                        <>
+                          <input value={deleteConfirmation} onChange={event => setDeleteConfirmation(event.target.value)} placeholder={`Type ${profile.email} to confirm`} className={`${fieldClass} border-red-500/30 focus:border-red-400 focus:ring-red-500/20`} />
+                          <button onClick={() => void deleteUserPermanently()} disabled={saving !== null || !reason.trim() || deleteConfirmation.trim().toLowerCase() !== profile.email.toLowerCase()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 font-semibold text-white disabled:opacity-40">{saving === 'delete-user' ? <Loader2 className="animate-spin" size={17} /> : <Trash2 size={17} />}Delete user and all data</button>
+                        </>
+                      )}
+                    </section>
                   </div>
                 )}
 
