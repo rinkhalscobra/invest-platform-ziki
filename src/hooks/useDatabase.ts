@@ -87,6 +87,8 @@ export interface DatabaseRobotState {
   todays_profit: number;
   total_trades: number;
   successful_trades: number;
+  custom_daily_profit_percentage: number | null;
+  last_profit_timestamp: string | null;
   created_at: string;
   updated_at: string;
   active_challenge_id: string | null;
@@ -209,7 +211,7 @@ export interface CoinGeckoToken {
 }
 
 export const useDatabase = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [balances, setBalances] = useState({ usdt_balance: 0, btc_balance: 0 });
   const [robotState, setRobotState] = useState<DatabaseRobotState | null>(null);
   const [transactions, setTransactions] = useState<DatabaseTransaction[]>([]);
@@ -226,6 +228,7 @@ export const useDatabase = () => {
   const [referralCount, setReferralCount] = useState(0);
   const [referredUsers, setReferredUsers] = useState<any[]>([]);
   const [isDemoAccount, setIsDemoAccount] = useState<boolean>(true);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Fetch user balances
   const fetchBalances = useCallback(async () => {
@@ -445,7 +448,7 @@ export const useDatabase = () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('kyc_status, referral_code, referral_count, is_demo')
+        .select('kyc_status, referral_code, referral_count, is_demo, is_admin')
         .eq('id', user.id)
         .single();
 
@@ -456,6 +459,7 @@ export const useDatabase = () => {
         setReferralCode(data.referral_code);
         setReferralCount(data.referral_count || 0);
         setIsDemoAccount(data.is_demo || false);
+        setIsAdmin(data.is_admin || false);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -484,7 +488,14 @@ export const useDatabase = () => {
 
   // Initialize data
   useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     if (user) {
+      setLoading(true);
+      setIsAdmin(false);
       const initializeData = async () => {
         try {
           // Fetch critical data first and await it
@@ -511,9 +522,11 @@ export const useDatabase = () => {
       
       initializeData();
     } else {
+      setIsAdmin(false);
       setLoading(false);
     }
   }, [
+    authLoading,
     user,
     fetchBalances,
     fetchRobotState,
@@ -870,6 +883,7 @@ export const useDatabase = () => {
     referralCount,
     referredUsers,
     isDemoAccount,
+    isAdmin,
     fetchRobotState,
     fetchTransactions,
     fetchUserStakes,

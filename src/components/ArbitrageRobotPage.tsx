@@ -89,6 +89,19 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     setLocalAllocatedBalance(robotState?.allocated_balance || 0);
   }, [robotState?.allocated_balance]);
 
+  // Keep automatic profit credits made by the backend visible while this page is open.
+  useEffect(() => {
+    if (!robotState?.is_active || !fetchRobotState) return;
+
+    const refreshRobot = () => {
+      void fetchRobotState();
+      refreshBreakdown?.();
+    };
+
+    const interval = window.setInterval(refreshRobot, 30000);
+    return () => window.clearInterval(interval);
+  }, [robotState?.is_active, fetchRobotState, refreshBreakdown]);
+
   useEffect(() => {
     const currentAmount = parseFloat(allocationAmount);
     if (!isNaN(currentAmount) && currentAmount > actualAvailableBalance) {
@@ -96,10 +109,30 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     }
   }, [actualAvailableBalance, allocationAmount]);
 
+  const getReferencePrice = useCallback((pair: string) => {
+    const normalizedSymbol = pair.replace('/', '');
+    const snapshotPrice = getSnapshotPriceBySymbol(normalizedSymbol);
+    if (snapshotPrice > 0) return snapshotPrice;
+
+    // Stable fallbacks keep the explicitly simulated feed valid while live
+    // market data is reconnecting (and avoid displaying NaN percentages).
+    const fallbackPrices: Record<string, number> = {
+      BTCUSDT: 50000,
+      ETHUSDT: 3000,
+      SOLUSDT: 150,
+      XRPUSDT: 0.6,
+      BNBUSDT: 600,
+      ADAUSDT: 0.5,
+      AVAXUSDT: 35
+    };
+
+    return fallbackPrices[normalizedSymbol] || 1;
+  }, [getSnapshotPriceBySymbol]);
+
   // Get current price for selected pair using snapshot
   const getCurrentPrice = useCallback(() => {
-    return getSnapshotPriceBySymbol(selectedPair) || 0;
-  }, [getSnapshotPriceBySymbol, selectedPair]);
+    return getReferencePrice(selectedPair);
+  }, [getReferencePrice, selectedPair]);
   
   // Generate simulated arbitrage opportunities
   useEffect(() => {
@@ -114,15 +147,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       }
       
       const pair = pairs[Math.floor(Math.random() * pairs.length)];
-      const currentPrice = getCurrentPrice();
-      const basePrice = pair === selectedPair ? currentPrice : 
-                        pair === 'BTC/USDT' ? currentPrice * 2 :
-                        pair === 'ETH/USDT' ? currentPrice * 0.05 :
-                        pair === 'SOL/USDT' ? currentPrice * 0.001 :
-                        pair === 'XRP/USDT' ? currentPrice * 0.00001 :
-                        pair === 'BNB/USDT' ? currentPrice * 0.01 :
-                        pair === 'ADA/USDT' ? currentPrice * 0.00005 :
-                        currentPrice * 0.0005;
+      const basePrice = getReferencePrice(pair);
       
       const buyPrice = basePrice * (1 - Math.random() * 0.005);
       const sellPrice = basePrice * (1 + Math.random() * 0.005);
@@ -161,7 +186,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     }, 45000); // Every 45 seconds
     
     return () => clearInterval(interval);
-  }, [robotState?.is_active, getCurrentPrice, possibleTrades.length]);
+  }, [robotState?.is_active, getReferencePrice, possibleTrades.length]);
   
   // Generate simulated trading logs
   useEffect(() => {
@@ -175,7 +200,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
         const exchange = exchanges[Math.floor(Math.random() * exchanges.length)];
         const pair = pairs[Math.floor(Math.random() * pairs.length)];
         const amount = (Math.random() * 0.1).toFixed(6);
-        const currentPrice = getCurrentPrice();
+        const currentPrice = getReferencePrice(pair);
         const price = (action === 'BUY' ? currentPrice * 0.9999 : currentPrice * 1.0001).toFixed(2);
         const profit = (Math.random() * 0.01).toFixed(6);
         
@@ -209,7 +234,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       
       return () => clearInterval(interval);
     }
-  }, [robotState?.is_active, getCurrentPrice, tradingLogs.length]);
+  }, [robotState?.is_active, getReferencePrice, tradingLogs.length]);
 
   // Handle robot activation
   const handleActivateRobot = async () => {
@@ -344,6 +369,16 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
 
   // Calculate daily profit percentage based on allocated balance (in BTC equivalent)
   const getDailyProfitPercentage = () => {
+    const crmPercentage = Number(robotState?.custom_daily_profit_percentage);
+    if (
+      robotState?.custom_daily_profit_percentage !== null &&
+      robotState?.custom_daily_profit_percentage !== undefined &&
+      Number.isFinite(crmPercentage) &&
+      crmPercentage >= 0
+    ) {
+      return crmPercentage;
+    }
+
     const allocatedBalance = localAllocatedBalance;
     const btcPrice = getCurrentPrice() || 50000; // Get current BTC price or fallback
     const allocatedBalanceInBTC = allocatedBalance / btcPrice;
@@ -364,6 +399,19 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
   
   // Calculate estimated yearly profit
   const estimatedYearlyProfit = estimatedDailyProfit * 365;
+
+  const displayedTodaysProfit = React.useMemo(() => {
+    if (!robotState?.last_profit_timestamp) return 0;
+
+    const creditedAt = new Date(robotState.last_profit_timestamp);
+    const now = new Date();
+    const wasCreditedToday =
+      creditedAt.getUTCFullYear() === now.getUTCFullYear() &&
+      creditedAt.getUTCMonth() === now.getUTCMonth() &&
+      creditedAt.getUTCDate() === now.getUTCDate();
+
+    return wasCreditedToday ? robotState.todays_profit || 0 : 0;
+  }, [robotState?.last_profit_timestamp, robotState?.todays_profit]);
   
   // Get investment tier based on allocated balance (in BTC equivalent)
   const getInvestmentTier = () => {
@@ -601,7 +649,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
                     </div>
                     <div>
                       <div className="text-slate-400 text-sm">{t('robot.todaysProfit')}</div>
-                      <div className="text-emerald-400 font-bold text-xl">+${(robotState?.todays_profit || 0).toFixed(2)}</div>
+                      <div className="text-emerald-400 font-bold text-xl">+${displayedTodaysProfit.toFixed(2)}</div>
                     </div>
                   </div>
                   

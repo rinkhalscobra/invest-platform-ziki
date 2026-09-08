@@ -538,6 +538,8 @@ export interface Database {
           todays_profit: number;
           total_trades: number;
           successful_trades: number;
+          custom_daily_profit_percentage: number | null;
+          last_profit_timestamp: string | null;
           created_at: string;
           updated_at: string;
           active_challenge_id: string | null;
@@ -557,6 +559,8 @@ export interface Database {
           todays_profit?: number;
           total_trades?: number;
           successful_trades?: number;
+          custom_daily_profit_percentage?: number | null;
+          last_profit_timestamp?: string | null;
           created_at?: string;
           updated_at?: string;
           active_challenge_id?: string | null;
@@ -576,6 +580,8 @@ export interface Database {
           todays_profit?: number;
           total_trades?: number;
           successful_trades?: number;
+          custom_daily_profit_percentage?: number | null;
+          last_profit_timestamp?: string | null;
           created_at?: string;
           updated_at?: string;
           active_challenge_id?: string | null;

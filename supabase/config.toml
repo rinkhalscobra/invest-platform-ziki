@@ -1,2 +1,7 @@
 # Hosted Edge Function schedules are configured with pg_cron and pg_net.
 # The Supabase CLI does not support schedule keys in function configuration.
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false

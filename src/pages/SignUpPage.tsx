@@ -60,9 +60,8 @@ const SignUpPage: React.FC = () => {
 
       if (!data.session) {
         const { error: signInError } = await signIn(email, password);
-
         if (signInError) {
-          throw new Error('Account created, but automatic sign-in failed');
+          throw new Error('Email confirmation is still enabled in Supabase. Disable "Confirm email" in Authentication settings.');
         }
       }
 
@@ -335,7 +334,7 @@ const SignUpPage: React.FC = () => {
           <div className="mt-6 text-center">
             <p className="text-slate-300">
               {t('auth.alreadyHaveAccount')}{' '}
-              <Link to="/signin" className="text-blue-400 hover:text-blue-300 transition-colors font-medium underline">
+              <Link to="/auth" className="text-blue-400 hover:text-blue-300 transition-colors font-medium underline">
                 {t('auth.signIn')}
               </Link>
             </p>

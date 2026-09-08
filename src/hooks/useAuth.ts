@@ -36,7 +36,6 @@ export const useAuth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: undefined,
           data: {
             referral_code: referralCode || null,
             first_name: firstName || null,

@@ -44,6 +44,7 @@ import { useUserLeverage } from './hooks/useUserLeverage';
 import SwapCryptoPage from './components/SwapCryptoPage';
 import SpinTheWheel from './components/SpinTheWheel';
 import PaymentSandbox from './components/PaymentSandbox';
+import AdminCRMPage from './components/AdminCRMPage';
 
 export type TradingMode = 'home' | 'swap' | 'futures' | 'cfd' | 'prop_firm' | 'robot' | 'events' | 'wallet' | 'profile' | 'staking' | 'wheel' | 'payment_sandbox';
 
@@ -110,7 +111,8 @@ function AppContent() {
     fetchRobotState,
     calculateCurrentEarnings,
     cancelUserStake,
-    isDemoAccount
+    isDemoAccount,
+    isAdmin
   } = useDatabase();
   const { assets, fetchAssets, updateAssetBalance } = useUserAssets();
   const { 
@@ -960,6 +962,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     marketDataList={marketData}
                     userStatus={userStatus}
                     isDemoAccount={isDemoAccount}
+                    isAdmin={isAdmin}
                   />
                   
                   <main>
@@ -1269,14 +1272,31 @@ const handleUpdatePassword = async (newPassword: string) => {
                     {tradingMode === 'payment_sandbox' && (
                       <PaymentSandbox />
                     )}
+
                   </main>
                 </>
               ) : (
-                <Navigate to="/signin" replace />
+                <Navigate to="/auth" replace />
+              )
+            } />
+
+            <Route path="/admin" element={
+              authLoading || (user && dbLoading) ? (
+                <div className="flex min-h-screen items-center justify-center app-page-bg text-slate-400">Verifying administrator access...</div>
+              ) : user ? (
+                isAdmin ? <AdminCRMPage isAdmin /> : <Navigate to="/" replace />
+              ) : (
+                <Navigate to="/auth" replace />
               )
             } />
             
             {/* Auth routes */}
+            <Route path="/auth" element={
+              user ? <Navigate to="/" replace /> : <SignInPage />
+            } />
+            <Route path="/auth/register" element={
+              user ? <Navigate to="/" replace /> : <SignUpPage />
+            } />
             <Route path="/signin" element={
               user ? <Navigate to="/" replace /> : <SignInPage />
             } />

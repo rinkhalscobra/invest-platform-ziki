@@ -23,6 +23,7 @@ import {
   Globe,
   Bell,
   Shield,
+  ShieldCheck,
   Zap,
   DollarSign,
   Bitcoin,
@@ -78,6 +79,7 @@ interface HeaderProps {
   marketDataList: MarketData[];
   userStatus: UserStatus;
   isDemoAccount: boolean;
+  isAdmin: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -94,7 +96,8 @@ const Header: React.FC<HeaderProps> = ({
   signOut,
   marketDataList,
   userStatus,
-  isDemoAccount
+  isDemoAccount,
+  isAdmin
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -643,6 +646,19 @@ const Header: React.FC<HeaderProps> = ({
                       <User size={15} />
                       <span>{t('navigation.profile')}</span>
                     </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          navigate('/admin');
+                          setShowUserMenu(false);
+                        }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-purple-300 transition-colors ${headerSurfaceHoverBackgroundClass} hover:text-white`}
+                      >
+                        <ShieldCheck size={15} />
+                        <span>Administration CRM</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {
