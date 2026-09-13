@@ -45,6 +45,7 @@ import SwapCryptoPage from './components/SwapCryptoPage';
 import SpinTheWheel from './components/SpinTheWheel';
 import PaymentSandbox from './components/PaymentSandbox';
 import AdminCRMPage from './components/AdminCRMPage';
+import SiteFooter from './components/SiteFooter';
 
 export type TradingMode = 'home' | 'swap' | 'futures' | 'cfd' | 'prop_firm' | 'robot' | 'events' | 'wallet' | 'profile' | 'staking' | 'wheel' | 'payment_sandbox';
 
@@ -939,7 +940,7 @@ const handleUpdatePassword = async (newPassword: string) => {
 
   return (
     <Router>
-      <div className="min-h-screen app-page-bg text-white">
+      <div className="flex min-h-screen flex-col app-page-bg text-white">
           <Routes>
             {/* Handle password recovery at root path */}
             <Route path="/" element={
@@ -963,7 +964,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     isAdmin={isAdmin}
                   />
                   
-                  <main>
+                  <main className="flex-1">
                     {tradingMode === 'home' && (
                       <HomePage
                         currentBtcPrice={currentSelectedPairPrice}
@@ -1273,6 +1274,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     )}
 
                   </main>
+                  <SiteFooter />
                 </>
               ) : (
                 <Navigate to="/auth" replace />
