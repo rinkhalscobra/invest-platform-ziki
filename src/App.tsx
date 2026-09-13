@@ -46,6 +46,7 @@ import SpinTheWheel from './components/SpinTheWheel';
 import PaymentSandbox from './components/PaymentSandbox';
 import AdminCRMPage from './components/AdminCRMPage';
 import SiteFooter from './components/SiteFooter';
+import LandingPage from './pages/LandingPage';
 
 export type TradingMode = 'home' | 'swap' | 'futures' | 'cfd' | 'prop_firm' | 'robot' | 'events' | 'wallet' | 'profile' | 'staking' | 'wheel' | 'payment_sandbox';
 
@@ -1277,7 +1278,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                   <SiteFooter />
                 </>
               ) : (
-                <Navigate to="/auth" replace />
+                <LandingPage />
               )
             } />
 
@@ -1331,7 +1332,7 @@ const handleUpdatePassword = async (newPassword: string) => {
           )}
 
           {/* Loading Screen */}
-          {(authLoading || isLoading) && !isRecoveryLink && !isPreparingMarkets && (
+          {user && (authLoading || isLoading) && !isRecoveryLink && !isPreparingMarkets && (
             <LoadingScreen />
           )}
         </div>
