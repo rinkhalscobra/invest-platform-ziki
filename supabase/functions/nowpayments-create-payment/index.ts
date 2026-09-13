@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
         price_currency: "usd",
         pay_currency: payCurrency,
         order_id: orderId,
-        order_description: `Atlas Market deposit for ${user.id}`,
+        order_description: `Point2Wealth deposit for ${user.id}`,
       }),
     });
     const providerData = await providerResponse.json().catch(() => ({}));

@@ -7,7 +7,6 @@ import {
   CheckCircle, 
   AlertCircle,
   User,
-  Shield,
   X,
   Search,
   Filter,
@@ -20,6 +19,7 @@ import {
   ChevronDown,
   Check
 } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 
@@ -718,11 +718,9 @@ const SupportChat: React.FC<SupportChatProps> = ({ user }) => {
                         } rounded-2xl px-4 py-3 shadow-lg`}>
                           {!isOwnMessage && (
                             <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                                <Shield size={12} className="text-white" />
-                              </div>
+                              <BrandLogo className="h-5 w-auto max-w-12" alt="Point2Wealth Support" />
                               <span className="text-xs font-medium text-slate-300">
-                                Atlas Market Support
+                                Point2Wealth Support
                               </span>
                             </div>
                           )}

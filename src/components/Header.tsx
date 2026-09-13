@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import BrandLogo from './BrandLogo';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -32,7 +33,7 @@ import {
   Gift,
   CreditCard
 } from 'lucide-react';
-import { TradingMode, UserStatus } from '../App';
+import { TradingMode } from '../App';
 import { MarketData } from '../hooks/useDatabase';
 import { User as UserType } from '@supabase/supabase-js';
 import { useMarketData } from '../contexts/MarketDataContext';
@@ -77,8 +78,6 @@ interface HeaderProps {
   user: UserType;
   signOut: () => void;
   marketDataList: MarketData[];
-  userStatus: UserStatus;
-  isDemoAccount: boolean;
   isAdmin: boolean;
 }
 
@@ -95,8 +94,6 @@ const Header: React.FC<HeaderProps> = ({
   user,
   signOut,
   marketDataList,
-  userStatus,
-  isDemoAccount,
   isAdmin
 }) => {
   const navigate = useNavigate();
@@ -250,36 +247,6 @@ const Header: React.FC<HeaderProps> = ({
     { key: 'wheel', label: 'Spin Wheel', icon: Gift }
   ];
 
-  // Get status color based on user tier
-  const getStatusColor = (status: UserStatus) => {
-    switch (status) {
-      case 'No-Coiner': return 'text-slate-500';
-      case 'Shrimp': return 'text-gray-400';
-      case 'Crab': return 'text-purple-400';
-      case 'Octopus': return 'text-purple-400';
-      case 'Dolphin': return 'text-blue-400';
-      case 'Shark': return 'text-red-400';
-      case 'Whale': return 'text-green-400';
-      case 'Humpback': return 'text-cyan-400';
-      default: return 'text-slate-400';
-    }
-  };
-
-  // Get status icon based on user tier
-  const getStatusIcon = (status: UserStatus) => {
-    switch (status) {
-      case 'No-Coiner': return '🚫';
-      case 'Shrimp': return '🦐';
-      case 'Crab': return '🦀';
-      case 'Octopus': return '🐙';
-      case 'Dolphin': return '🐬';
-      case 'Shark': return '🦈';
-      case 'Whale': return '🐋';
-      case 'Humpback': return '🐳';
-      default: return '📊';
-    }
-  };
-
   // Format pair display
   const formatPairDisplay = (symbol: string) => {
     const cfdInstrument = getCfdInstrument(symbol);
@@ -393,15 +360,13 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className={`sticky top-0 z-40 border-b border-slate-700/50 ${headerShellBackgroundClass} shadow-xl backdrop-blur-md`}>
       <div className={headerContainerClass}>
-        <div className="flex min-h-16 items-center justify-between gap-3 py-2 sm:h-16 sm:py-0">
+        <div className="flex min-h-16 items-center justify-between gap-3 py-2 sm:min-h-[72px] sm:py-2">
 
           {/* Left Section - Logo and Navigation */}
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3 lg:gap-5">
             {/* Logo */}
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-              <span className="hidden whitespace-nowrap bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-xl font-bold text-transparent min-[420px]:block sm:text-2xl">
-                Atlas Market
-              </span>
+              <BrandLogo className="h-8 w-auto max-w-20 sm:h-9 sm:max-w-24" />
             </div>
 
             {/* Desktop Navigation */}
@@ -562,41 +527,6 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
 
-              {/* Account Type Indicator */}
-              <div className={`hidden rounded-xl border px-2.5 py-1.5 md:block 2xl:px-3.5 2xl:py-2.5 ${isDemoAccount
-                ? 'bg-purple-500/10 border-purple-500/30'
-                : 'bg-gradient-to-r from-purple-500/20 to-violet-500/10 border-purple-500/30'
-                }`}>
-                <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full 2xl:h-2.5 2xl:w-2.5 ${isDemoAccount ? 'bg-purple-400' : 'bg-white'
-                    }`} />
-                  <span className={`text-xs font-semibold 2xl:text-sm ${isDemoAccount ? 'text-purple-400' : 'text-white'
-                    }`}>
-                    {isDemoAccount ? 'DEMO' : 'LIVE'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* User Status Badge */}
-            <div
-              className={`flex min-w-0 items-center gap-1.5 rounded-xl border px-2 py-1.5 sm:px-2.5 2xl:gap-2 2xl:px-3.5 2xl:py-2.5 ${userStatus === 'Whale' || userStatus === 'Humpback'
-                ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30'
-                : userStatus === 'Shark'
-                  ? 'bg-gradient-to-r from-red-500/20 to-pink-500/20 border-red-500/30'
-                  : userStatus === 'Dolphin'
-                    ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30'
-                    : userStatus === 'Octopus'
-                      ? 'bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border-purple-500/30'
-                      : userStatus === 'Crab'
-                        ? 'bg-gradient-to-r from-purple-500/20 to-violet-500/20 border-purple-500/30'
-                        : `${headerSurfaceBackgroundClass} border-slate-600/50`
-                }`}
-            >
-              <span className="text-base 2xl:text-lg">{getStatusIcon(userStatus)}</span>
-              <span className={`hidden truncate text-[11px] font-medium min-[420px]:block sm:text-xs 2xl:text-sm ${getStatusColor(userStatus)}`}>
-                {t(`header.tiers.${userStatus.toLowerCase()}`)}
-              </span>
             </div>
 
             {/* User Menu */}
@@ -617,9 +547,6 @@ const Header: React.FC<HeaderProps> = ({
                     <div className="flex items-center gap-2.5">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium text-white">{user.email}</div>
-                        <div className={`text-xs ${getStatusColor(userStatus)}`}>
-                          {getStatusIcon(userStatus)} {userStatus}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -711,27 +638,6 @@ const Header: React.FC<HeaderProps> = ({
                   >
                     {showBalances ? <Eye size={15} /> : <EyeOff size={15} />}
                   </button>
-                  <div className={`flex min-w-0 items-center gap-1 rounded-lg px-2 py-1 ${getStatusColor(userStatus)}`}>
-                    <span>{getStatusIcon(userStatus)}</span>
-                    <span className="truncate text-xs font-medium">{userStatus}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Account Type Indicator - Mobile */}
-              <div className="flex items-center justify-center">
-                <div className={`rounded-lg border px-3 py-1.5 ${isDemoAccount
-                  ? 'bg-purple-500/10 border-purple-500/30'
-                  : 'bg-gradient-to-r from-purple-500/20 to-violet-500/10 border-purple-500/30'
-                  }`}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isDemoAccount ? 'bg-purple-400' : 'bg-white'
-                      }`} />
-                    <span className={`text-xs font-semibold ${isDemoAccount ? 'text-purple-400' : 'text-white'
-                      }`}>
-                      {isDemoAccount ? 'DEMO ACCOUNT' : 'LIVE ACCOUNT'}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>

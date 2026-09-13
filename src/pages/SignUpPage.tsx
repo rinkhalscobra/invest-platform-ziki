@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, AlertCircle, Gift, User, Globe, ChevronRight, 
 import { useAuth } from '../hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import BrandLogo from '../components/BrandLogo';
 
 const SignUpPage: React.FC = () => {
   const { t } = useTranslation();
@@ -115,6 +116,7 @@ const SignUpPage: React.FC = () => {
           <div className="flex justify-end mb-4">
             <LanguageSwitcher />
           </div>
+          <BrandLogo className="mx-auto mb-6 h-auto w-52 max-w-full" />
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-300 via-purple-300 to-violet-300 bg-clip-text text-transparent mb-2 sm:text-4xl">
             {t('auth.joinPlatform')}
           </h1>

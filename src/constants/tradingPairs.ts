@@ -271,7 +271,7 @@ const CFD_INSTRUMENTS_BASE: CfdInstrumentConfig[] = [
   { symbol: 'COTTON/USD', name: 'Cotton', type: 'commodity', active: false, category: 'commodities' },
 
   // Requested technology, growth, mobility, media, and fintech equities.
-  // `active` is true only when the existing Atlas price feed has been verified.
+  // `active` is true only when the existing Point2Wealth price feed has been verified.
   { symbol: 'AAPL', name: 'Apple', type: 'stock', active: true, category: 'technology' },
   { symbol: 'MSFT', name: 'Microsoft', type: 'stock', active: true, category: 'technology' },
   { symbol: 'NVDA', name: 'NVIDIA', type: 'stock', active: true, category: 'technology' },

@@ -50,6 +50,7 @@ interface ProfilePageProps {
   totalPortfolioValue: number;
   totalPositionsPnl?: number;
   userStatus: UserStatus;
+  isDemoAccount: boolean;
   kycStatus: 'not_verified' | 'pending' | 'verified';
   updateKycStatus: (status: 'not_verified' | 'pending' | 'verified') => void;
   portfolioSnapshots?: any[];
@@ -69,6 +70,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   totalPortfolioValue,
   totalPositionsPnl = 0,
   userStatus,
+  isDemoAccount,
   kycStatus: propKycStatus,
   updateKycStatus: propUpdateKycStatus,
   portfolioSnapshots,
@@ -97,6 +99,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   const [savingProfile, setSavingProfile] = useState(false);
 
   const userCfdTier = getUserCfdTier(totalPortfolioValue);
+
+  const statusPresentation: Record<UserStatus, { icon: string; classes: string }> = {
+    'No-Coiner': { icon: '🚫', classes: 'border-slate-600/50 bg-slate-700/40 text-slate-300' },
+    Shrimp: { icon: '🦐', classes: 'border-orange-500/30 bg-orange-500/10 text-orange-300' },
+    Crab: { icon: '🦀', classes: 'border-purple-500/30 bg-purple-500/10 text-purple-300' },
+    Octopus: { icon: '🐙', classes: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' },
+    Dolphin: { icon: '🐬', classes: 'border-blue-500/30 bg-blue-500/10 text-blue-300' },
+    Shark: { icon: '🦈', classes: 'border-red-500/30 bg-red-500/10 text-red-300' },
+    Whale: { icon: '🐋', classes: 'border-green-500/30 bg-green-500/10 text-green-300' },
+    Humpback: { icon: '🐳', classes: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' },
+  };
+  const currentStatus = statusPresentation[userStatus];
 
   // Fetch user profile data
   useEffect(() => {
@@ -238,7 +252,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-stretch gap-3">
           <div className="app-surface-secondary px-6 py-3 rounded-xl">
             <div className="text-slate-400 text-sm">Portfolio Value</div>
             <div className="text-white font-mono text-xl">${totalPortfolioValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -254,6 +268,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 </span>
               </div>
             )}
+          </div>
+
+          <div className={`flex min-w-28 items-center justify-center gap-2 rounded-xl border px-5 py-3 ${isDemoAccount
+            ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
+            : 'border-violet-500/30 bg-gradient-to-r from-purple-500/20 to-violet-500/10 text-white'
+          }`}>
+            <span className={`h-2.5 w-2.5 rounded-full ${isDemoAccount ? 'bg-purple-400' : 'bg-white'}`} />
+            <span className="text-sm font-semibold">{isDemoAccount ? 'DEMO' : 'LIVE'}</span>
+          </div>
+
+          <div className={`flex min-w-28 items-center justify-center gap-2 rounded-xl border px-5 py-3 ${currentStatus.classes}`}>
+            <span className="text-xl" aria-hidden="true">{currentStatus.icon}</span>
+            <span className="text-sm font-semibold">{userStatus}</span>
           </div>
 
           <button

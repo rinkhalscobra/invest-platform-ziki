@@ -960,8 +960,6 @@ const handleUpdatePassword = async (newPassword: string) => {
                     user={user}
                     signOut={signOut}
                     marketDataList={marketData}
-                    userStatus={userStatus}
-                    isDemoAccount={isDemoAccount}
                     isAdmin={isAdmin}
                   />
                   
@@ -1239,7 +1237,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     {tradingMode === 'profile' && (
                       <ProfilePage
                         user={user}
-                        signOut={signOut}
+                        onSignOut={signOut}
                         kycStatus={kycStatus}
                         updateKycStatus={updateKycStatus}
                         referralCode={referralCode}
@@ -1250,6 +1248,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                         totalPortfolioValue={totalPortfolioValue}
                         totalPositionsPnl={unrealizedPnl}
                         userStatus={userStatus}
+                        isDemoAccount={isDemoAccount}
                         onUpdatePassword={handleUpdatePassword}
                       />
                     )}

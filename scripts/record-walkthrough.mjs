@@ -212,8 +212,8 @@ await cdp.send('Page.stopScreencast').catch(() => {});
 await browser.close();
 
 const ffmpeg = path.join(root, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
-const output = path.join(outDir, 'atlas-market-complete-training-v3.mp4');
-const silentOutput = path.join(outDir, 'atlas-market-complete-training-v3-silent.mp4');
+const output = path.join(outDir, 'point2wealth-complete-training-v3.mp4');
+const silentOutput = path.join(outDir, 'point2wealth-complete-training-v3-silent.mp4');
 const narrationText = path.join(outDir, 'narration-v3.txt');
 const narrationWav = path.join(outDir, 'narration-v3.wav');
 fs.writeFileSync(narrationText, narration.join('\r\n\r\n'), 'utf8');
