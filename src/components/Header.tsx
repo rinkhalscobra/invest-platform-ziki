@@ -366,7 +366,7 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3 lg:gap-5">
             {/* Logo */}
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-              <BrandLogo className="h-8 w-auto max-w-20 sm:h-9 sm:max-w-24" />
+              <BrandLogo className="h-10 w-auto max-w-28 sm:h-12 sm:max-w-36" />
             </div>
 
             {/* Desktop Navigation */}
