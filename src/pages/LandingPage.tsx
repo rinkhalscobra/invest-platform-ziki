@@ -78,31 +78,31 @@ const LandingPage: React.FC = () => {
   return (
     <div className="flex min-h-screen flex-col overflow-hidden bg-[#070b16] text-white">
       <header className="sticky top-0 z-50 border-b border-slate-800/80 bg-[#070b16]/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-[76px] w-full max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
+        <div className="mx-auto flex h-[92px] w-full max-w-7xl items-center justify-between gap-7 px-5 sm:h-[100px] sm:px-8">
           <Link to="/" aria-label="Point2Wealth home" className="shrink-0">
-            <BrandLogo className="h-11 w-auto max-w-36 sm:h-12 sm:max-w-40" />
+            <BrandLogo className="h-12 w-auto max-w-40 sm:h-16 sm:max-w-52" />
           </Link>
 
-          <nav className="hidden items-center gap-8 text-sm font-medium text-slate-400 md:flex" aria-label="Main navigation">
+          <nav className="hidden items-center gap-10 text-base font-semibold text-slate-400 lg:flex" aria-label="Main navigation">
             <a href="#platform" className="transition-colors hover:text-white">Platform</a>
             <a href="#markets" className="transition-colors hover:text-white">Markets</a>
             <a href="#how-it-works" className="transition-colors hover:text-white">How it works</a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               to="/auth"
-              className="rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white sm:px-4"
+              className="rounded-xl px-3 py-3 text-base font-semibold text-slate-300 transition-colors hover:bg-white/5 hover:text-white sm:px-5"
             >
               Sign in
             </Link>
             <Link
               to="/auth/register"
-              className="app-action-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold sm:px-5"
+              className="app-action-primary inline-flex items-center gap-2.5 rounded-xl px-5 py-3 text-base font-semibold sm:px-6 sm:py-3.5"
             >
               <span className="hidden sm:inline">Create account</span>
               <span className="sm:hidden">Join</span>
-              <ArrowRight size={16} />
+              <ArrowRight size={18} />
             </Link>
           </div>
         </div>
