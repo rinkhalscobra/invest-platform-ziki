@@ -47,6 +47,7 @@ import PaymentSandbox from './components/PaymentSandbox';
 import AdminCRMPage from './components/AdminCRMPage';
 import SiteFooter from './components/SiteFooter';
 import LandingPage from './pages/LandingPage';
+import ProfitLossNotifications from './components/ProfitLossNotifications';
 
 export type TradingMode = 'home' | 'swap' | 'futures' | 'cfd' | 'prop_firm' | 'robot' | 'events' | 'wallet' | 'profile' | 'staking' | 'wheel' | 'payment_sandbox';
 
@@ -114,7 +115,8 @@ function AppContent() {
     calculateCurrentEarnings,
     cancelUserStake,
     isDemoAccount,
-    isAdmin
+    isAdmin,
+    hasCrmAccess
   } = useDatabase();
   const { assets, fetchAssets, updateAssetBalance } = useUserAssets();
   const { 
@@ -942,6 +944,7 @@ const handleUpdatePassword = async (newPassword: string) => {
   return (
     <Router>
       <div className="flex min-h-screen flex-col app-page-bg text-white">
+          <ProfitLossNotifications userId={user?.id || null} />
           <Routes>
             {/* Handle password recovery at root path */}
             <Route path="/" element={
@@ -962,7 +965,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     user={user}
                     signOut={signOut}
                     marketDataList={marketData}
-                    isAdmin={isAdmin}
+                    isAdmin={hasCrmAccess}
                   />
                   
                   <main className="flex-1">
@@ -1286,7 +1289,7 @@ const handleUpdatePassword = async (newPassword: string) => {
               authLoading || (user && dbLoading) ? (
                 <div className="flex min-h-screen items-center justify-center app-page-bg text-slate-400">Verifying administrator access...</div>
               ) : user ? (
-                isAdmin ? <AdminCRMPage isAdmin /> : <Navigate to="/" replace />
+                hasCrmAccess ? <AdminCRMPage hasAccess isAdmin={isAdmin} /> : <Navigate to="/" replace />
               ) : (
                 <Navigate to="/auth" replace />
               )

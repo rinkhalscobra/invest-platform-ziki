@@ -210,6 +210,8 @@ export interface CoinGeckoToken {
   price_change_percentage_24h: number;
 }
 
+export type CRMRole = 'admin' | 'superior_manager' | 'manager' | 'agent' | 'client';
+
 export const useDatabase = () => {
   const { user, loading: authLoading } = useAuth();
   const [balances, setBalances] = useState({ usdt_balance: 0, btc_balance: 0 });
@@ -229,6 +231,7 @@ export const useDatabase = () => {
   const [referredUsers, setReferredUsers] = useState<any[]>([]);
   const [isDemoAccount, setIsDemoAccount] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [crmRole, setCrmRole] = useState<CRMRole>('client');
 
   // Fetch user balances
   const fetchBalances = useCallback(async () => {
@@ -448,7 +451,7 @@ export const useDatabase = () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('kyc_status, referral_code, referral_count, is_demo, is_admin')
+        .select('kyc_status, referral_code, referral_count, is_demo, is_admin, crm_role')
         .eq('id', user.id)
         .single();
 
@@ -460,6 +463,7 @@ export const useDatabase = () => {
         setReferralCount(data.referral_count || 0);
         setIsDemoAccount(data.is_demo || false);
         setIsAdmin(data.is_admin || false);
+        setCrmRole((data.crm_role as CRMRole) || (data.is_admin ? 'admin' : 'client'));
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -496,6 +500,7 @@ export const useDatabase = () => {
     if (user) {
       setLoading(true);
       setIsAdmin(false);
+      setCrmRole('client');
       const initializeData = async () => {
         try {
           // Fetch critical data first and await it
@@ -523,6 +528,7 @@ export const useDatabase = () => {
       initializeData();
     } else {
       setIsAdmin(false);
+      setCrmRole('client');
       setLoading(false);
     }
   }, [
@@ -884,6 +890,8 @@ export const useDatabase = () => {
     referredUsers,
     isDemoAccount,
     isAdmin,
+    crmRole,
+    hasCrmAccess: crmRole !== 'client',
     fetchRobotState,
     fetchTransactions,
     fetchUserStakes,

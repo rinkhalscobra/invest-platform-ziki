@@ -366,7 +366,7 @@ const Header: React.FC<HeaderProps> = ({
           <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3 lg:gap-5">
             {/* Logo */}
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
-              <BrandLogo className="h-10 w-auto max-w-28 sm:h-12 sm:max-w-36" />
+              <BrandLogo className="h-12 w-auto max-w-36 sm:h-14 sm:max-w-44" />
             </div>
 
             {/* Desktop Navigation */}
@@ -583,7 +583,7 @@ const Header: React.FC<HeaderProps> = ({
                         className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-purple-300 transition-colors ${headerSurfaceHoverBackgroundClass} hover:text-white`}
                       >
                         <ShieldCheck size={15} />
-                        <span>Administration CRM</span>
+                        <span>CRM Workspace</span>
                       </button>
                     )}
 

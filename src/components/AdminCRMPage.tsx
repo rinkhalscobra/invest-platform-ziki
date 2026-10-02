@@ -16,6 +16,7 @@ import {
   Landmark,
   LayoutDashboard,
   Loader2,
+  Network,
   Pencil,
   ReceiptText,
   RefreshCw,
@@ -31,6 +32,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import CRMHierarchyPanel, { CRMRole } from './CRMHierarchyPanel';
 
 type JsonRow = Record<string, unknown>;
 type CRMTab = 'dashboard' | 'profile' | 'wallet' | 'swap' | 'futures' | 'cfd' | 'prop' | 'robot' | 'events' | 'staking' | 'wheel' | 'deposits' | 'referrals' | 'support' | 'notifications' | 'audit';
@@ -45,6 +47,8 @@ interface AdminUser extends JsonRow {
   kyc_status?: string;
   is_demo?: boolean;
   is_admin?: boolean;
+  crm_role?: CRMRole;
+  crm_parent_id?: string | null;
   created_at?: string;
   usdt_balance?: number;
   btc_balance?: number;
@@ -99,6 +103,7 @@ interface UserWorkspace {
 }
 
 interface AdminCRMPageProps {
+  hasAccess: boolean;
   isAdmin: boolean;
 }
 
@@ -137,6 +142,10 @@ const displayName = (user: AdminUser) => {
   const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
   return name || user.email;
 };
+
+const crmRoleLabel = (role?: CRMRole) => role
+  ? role.replaceAll('_', ' ').replace(/\b\w/g, letter => letter.toUpperCase())
+  : 'Client';
 
 const compactValue = (value: unknown) => {
   if (value === null || value === undefined || value === '') return '—';
@@ -205,7 +214,7 @@ const RecordSection: React.FC<{
   );
 };
 
-const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
+const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<CRMStats>(emptyStats);
@@ -232,6 +241,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
   const [currentAdminId, setCurrentAdminId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [crmView, setCrmView] = useState<'workspaces' | 'hierarchy'>('workspaces');
 
   const showError = (error: unknown) => {
     const text = error instanceof Error ? error.message : 'The CRM request failed';
@@ -239,7 +249,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
   };
 
   const loadUsers = useCallback(async (query = '') => {
-    if (!isAdmin) return;
+    if (!hasAccess) return;
     setLoadingUsers(true);
     const { data, error } = await supabase.rpc('admin_get_users', {
       p_search: query.trim() || null,
@@ -258,7 +268,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
     setSelectedUserId(current => current && nextUsers.some(user => user.id === current)
       ? current
       : nextUsers[0]?.id || null);
-  }, [isAdmin]);
+  }, [hasAccess]);
 
   const loadWorkspace = useCallback(async (userId: string) => {
     setLoadingWorkspace(true);
@@ -282,7 +292,6 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
       phone_number: asText(profile.phone_number),
       kyc_status: asText(profile.kyc_status || 'not_verified'),
       is_demo: Boolean(profile.is_demo),
-      is_admin: Boolean(profile.is_admin),
       document_id_url: asText(profile.document_id_url),
       document_selfie_url: asText(profile.document_selfie_url),
       referral_code: asText(profile.referral_code),
@@ -290,7 +299,6 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
       referral_count: asText(profile.referral_count || 0),
       total_referral_earnings: asText(profile.total_referral_earnings || 0),
       referral_commission_rate: asText(profile.referral_commission_rate || 0.01),
-      two_factor_required: Boolean(profile.two_factor_required),
       min_leverage_forex: asText(profile.min_leverage_forex),
       max_leverage_forex: asText(profile.max_leverage_forex),
       min_leverage_commodities: asText(profile.min_leverage_commodities),
@@ -582,13 +590,13 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
     }, `${title} record deleted`);
   };
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-6">
         <div className={`${panelClass} max-w-md p-8 text-center`}>
           <XCircle className="mx-auto mb-4 text-red-400" size={44} />
-          <h1 className="text-xl font-semibold text-white">Administrator access required</h1>
-          <p className="mt-2 text-sm text-slate-400">This workspace is only available to authorized CRM administrators.</p>
+          <h1 className="text-xl font-semibold text-white">CRM access required</h1>
+          <p className="mt-2 text-sm text-slate-400">This workspace is available only to authorized hierarchy members.</p>
         </div>
       </div>
     );
@@ -640,13 +648,19 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Administration CRM</h1>
-                <p className="text-sm text-slate-400">Manage customers, funds, robot returns and platform records.</p>
+                <p className="text-sm text-slate-400">Manage your authorized branch, customer funds, activity and access structure.</p>
               </div>
             </div>
           </div>
-          <button onClick={() => void refreshAll()} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-300 hover:border-purple-500/50 hover:text-white">
-            <RefreshCw size={16} className={loadingUsers || loadingWorkspace ? 'animate-spin' : ''} /> Refresh CRM
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-xl border border-slate-700 bg-slate-900 p-1">
+              <button onClick={() => setCrmView('workspaces')} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${crmView === 'workspaces' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}><Users size={16} />User workspaces</button>
+              <button onClick={() => setCrmView('hierarchy')} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${crmView === 'hierarchy' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}><Network size={16} />Hierarchy</button>
+            </div>
+            <button onClick={() => void refreshAll()} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-300 hover:border-purple-500/50 hover:text-white">
+              <RefreshCw size={16} className={loadingUsers || loadingWorkspace ? 'animate-spin' : ''} /> Refresh CRM
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -673,6 +687,22 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
           </div>
         )}
 
+        {crmView === 'hierarchy' ? (
+          <>
+            <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
+              <input value={reason} onChange={event => setReason(event.target.value)} placeholder="Reason for audited hierarchy changes" className={fieldClass} />
+              <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-xs text-slate-400">Role and reporting changes are audited</div>
+            </div>
+            <CRMHierarchyPanel
+              reason={reason}
+              onHierarchyChanged={() => loadUsers(search)}
+              onOpenWorkspace={userId => {
+                setSelectedUserId(userId);
+                setCrmView('workspaces');
+              }}
+            />
+          </>
+        ) : (
         <div className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
           <aside className={`${panelClass} h-fit overflow-hidden xl:sticky xl:top-4`}>
             <div className="border-b border-slate-700/70 p-4">
@@ -693,7 +723,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                       <div className="truncate text-sm font-semibold text-white">{displayName(user)}</div>
                       <div className="truncate text-xs text-slate-500">{user.email}</div>
                     </div>
-                    {user.is_admin && <ShieldCheck size={15} className="shrink-0 text-purple-400" />}
+                    <span className="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">{crmRoleLabel(user.crm_role)}</span>
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs">
                     <span className={user.robot_active ? 'text-emerald-400' : 'text-slate-500'}>{user.robot_active ? 'Robot active' : user.kyc_status?.replaceAll('_', ' ')}</span>
@@ -716,7 +746,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="truncate text-xl font-bold text-white">{displayName(profile)}</h2>
-                        {profile.is_admin && <span className="rounded-full bg-purple-500/15 px-2 py-1 text-xs text-purple-300">Admin</span>}
+                        <span className="rounded-full bg-purple-500/15 px-2 py-1 text-xs text-purple-300">{crmRoleLabel(profile.crm_role)}</span>
                         <span className={`rounded-full px-2 py-1 text-xs ${profile.is_demo ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{profile.is_demo ? 'Demo' : 'Live'}</span>
                       </div>
                       <p className="mt-1 truncate text-sm text-slate-400">{profile.email} · {profile.id}</p>
@@ -773,7 +803,6 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                         <label className="text-xs text-slate-400">KYC status<select value={String(profileForm.kyc_status)} onChange={event => setProfileForm(current => ({ ...current, kyc_status: event.target.value }))} className={`${fieldClass} mt-1.5`}><option value="not_verified">Not verified</option><option value="pending">Pending</option><option value="verified">Verified</option></select></label>
                         <div className="flex items-end gap-5 rounded-xl border border-slate-700 p-3">
                           <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={Boolean(profileForm.is_demo)} onChange={event => setProfileForm(current => ({ ...current, is_demo: event.target.checked }))} />Demo account</label>
-                          <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={Boolean(profileForm.is_admin)} onChange={event => setProfileForm(current => ({ ...current, is_admin: event.target.checked }))} />Administrator</label>
                         </div>
                       </div>
                     </section>
@@ -794,18 +823,17 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                         {[['document_id_url', 'Identity document URL'], ['document_selfie_url', 'Selfie document URL'], ['referral_code', 'Referral code'], ['referred_by', 'Referrer user UUID'], ['referral_count', 'Referral count'], ['total_referral_earnings', 'Total referral earnings'], ['referral_commission_rate', 'Commission rate (0.01 = 1%)']].map(([key, label]) => (
                           <label key={key} className="text-xs text-slate-400">{label}<input value={String(profileForm[key] || '')} onChange={event => setProfileForm(current => ({ ...current, [key]: event.target.value }))} className={`${fieldClass} mt-1.5`} /></label>
                         ))}
-                        <label className="flex items-center gap-2 self-end rounded-xl border border-slate-700 p-3 text-sm text-slate-300"><input type="checkbox" checked={Boolean(profileForm.two_factor_required)} onChange={event => setProfileForm(current => ({ ...current, two_factor_required: event.target.checked }))} />Require two-factor authentication</label>
                       </div>
                     </section>
                     <button onClick={saveProfile} disabled={saving !== null} className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-50 lg:col-span-2">{saving === 'profile' ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}Save profile controls</button>
-                    <section className={`${panelClass} p-5`}>
+                    {isAdmin && <section className={`${panelClass} p-5`}>
                       <h3 className="font-semibold text-white">Supabase Auth password</h3>
                       <p className="mb-4 mt-1 text-xs text-slate-500">Set a new sign-in password for this customer. The password is never stored in the CRM audit log.</p>
                       {profile.id === currentAdminId && <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">This is your current administrator account. After changing its password, you will be signed out and must log in with the new password.</div>}
                       <input type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={event => setNewPassword(event.target.value)} placeholder="New password (minimum 8 characters)" className={fieldClass} />
                       <button onClick={() => void changeAuthPassword()} disabled={saving !== null || newPassword.length < 8 || !reason.trim()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 py-2.5 font-semibold text-white disabled:opacity-50">{saving === 'auth-password' ? <Loader2 className="animate-spin" size={17} /> : <ShieldCheck size={17} />}Change Auth password</button>
-                    </section>
-                    <section className="rounded-2xl border border-red-500/35 bg-red-500/[0.07] p-5 shadow-xl shadow-black/10">
+                    </section>}
+                    {isAdmin && <section className="rounded-2xl border border-red-500/35 bg-red-500/[0.07] p-5 shadow-xl shadow-black/10">
                       <h3 className="font-semibold text-red-200">Delete customer permanently</h3>
                       <p className="mb-4 mt-1 text-xs text-red-200/60">Deletes the Supabase Auth identity and cascades cleanup across this customer's wallet, robot, orders, positions, deposits, staking, events, referrals, messages and profile.</p>
                       {profile.id === currentAdminId ? (
@@ -816,7 +844,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                           <button onClick={() => void deleteUserPermanently()} disabled={saving !== null || !reason.trim() || deleteConfirmation.trim().toLowerCase() !== profile.email.toLowerCase()} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 font-semibold text-white disabled:opacity-40">{saving === 'delete-user' ? <Loader2 className="animate-spin" size={17} /> : <Trash2 size={17} />}Delete user and all data</button>
                         </>
                       )}
-                    </section>
+                    </section>}
                   </div>
                 )}
 
@@ -956,7 +984,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
                     {managedSection('Support conversations', 'conversations', workspace.conversations)}
                     <RecordSection title="Conversation messages" rows={(workspace.support_messages || []).filter(item => !supportConversationId || asText(item.conversation_id) === supportConversationId)} />
                     <div className="grid gap-5 xl:grid-cols-2">
-                      <section className={`${panelClass} p-5`}><h3 className="font-semibold text-white">Internal CRM note</h3><p className="mb-3 mt-1 text-xs text-slate-500">Visible to administrators only.</p><textarea rows={5} value={note} onChange={event => setNote(event.target.value)} className={fieldClass} placeholder="Add an internal note..." /><button onClick={addNote} disabled={saving !== null || !note.trim()} className="mt-3 w-full rounded-xl bg-slate-700 px-4 py-2.5 font-semibold text-white disabled:opacity-50">Add note</button></section>
+                      <section className={`${panelClass} p-5`}><h3 className="font-semibold text-white">Internal CRM note</h3><p className="mb-3 mt-1 text-xs text-slate-500">Visible only to authorized CRM users in this branch.</p><textarea rows={5} value={note} onChange={event => setNote(event.target.value)} className={fieldClass} placeholder="Add an internal note..." /><button onClick={addNote} disabled={saving !== null || !note.trim()} className="mt-3 w-full rounded-xl bg-slate-700 px-4 py-2.5 font-semibold text-white disabled:opacity-50">Add note</button></section>
                       <RecordSection title="Internal notes" rows={workspace.notes || []} />
                     </div>
                   </div>
@@ -971,7 +999,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
 
                 {tab === 'audit' && (
                   <div className="space-y-5">
-                    <RecordSection title="Administrator action audit" rows={workspace.audit_logs || []} />
+                    <RecordSection title="CRM action audit" rows={workspace.audit_logs || []} />
                     <RecordSection title="All platform trading logs" rows={workspace.trading_logs || []} />
                   </div>
                 )}
@@ -979,6 +1007,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ isAdmin }) => {
             )}
           </main>
         </div>
+        )}
       </div>
       {editingRecord && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4" onMouseDown={event => { if (event.target === event.currentTarget) setEditingRecord(null); }}>
