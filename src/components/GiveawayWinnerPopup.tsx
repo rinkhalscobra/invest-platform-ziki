@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Trophy, X, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -16,50 +16,40 @@ interface GiveawayWinnerPopupProps {
   forceShow?: boolean;
 }
 
+function createConfetti() {
+  const duration = 5000;
+  const end = Date.now() + duration;
+
+  const frame = () => {
+    const timeLeft = end - Date.now();
+
+    if (timeLeft <= 0) return;
+
+    const particleCount = 3;
+
+    for (let i = 0; i < particleCount; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti-particle';
+      confetti.style.left = Math.random() * 100 + '%';
+      confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
+      confetti.style.animationDelay = (Math.random() * 0.5) + 's';
+      confetti.style.backgroundColor = ['#FFD700', '#FFA500', '#FF69B4', '#00CED1', '#9370DB'][Math.floor(Math.random() * 5)];
+      document.body.appendChild(confetti);
+
+      setTimeout(() => confetti.remove(), 5000);
+    }
+
+    requestAnimationFrame(frame);
+  };
+
+  frame();
+}
+
 export default function GiveawayWinnerPopup({ forceShow = false }: GiveawayWinnerPopupProps) {
   const [winner, setWinner] = useState<GiveawayWinner | null>(null);
   const [showPopup, setShowPopup] = useState(false);
 
-  useEffect(() => {
-    if (forceShow) {
-      const mockWinner: GiveawayWinner = {
-        id: 'test-winner',
-        rank: 1,
-        prize_amount: 100000,
-        prize_tier: '1st Place',
-        claimed: false,
-        paid_out: true,
-        created_at: new Date().toISOString(),
-      };
-      setWinner(mockWinner);
-      setShowPopup(true);
-      createConfetti();
-    } else {
-      checkForNewWin();
-
-      const channel = supabase
-        .channel('giveaway_winners_updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'giveaway_winners',
-          },
-          (payload) => {
-            const newWinner = payload.new as GiveawayWinner;
-            checkForNewWin();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [forceShow]);
-
-  const checkForNewWin = async () => {
+  const checkForNewWin = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -84,7 +74,52 @@ export default function GiveawayWinnerPopup({ forceShow = false }: GiveawayWinne
     } catch (error) {
       console.error('Error checking for giveaway win:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (forceShow) {
+      const mockWinner: GiveawayWinner = {
+        id: 'test-winner',
+        rank: 1,
+        prize_amount: 100000,
+        prize_tier: '1st Place',
+        claimed: false,
+        paid_out: true,
+        created_at: new Date().toISOString(),
+      };
+      setWinner(mockWinner);
+      setShowPopup(true);
+      createConfetti();
+    } else {
+      let channel: ReturnType<typeof supabase.channel> | null = null;
+
+      // Avoid creating a socket during React Strict Mode's temporary first
+      // mount. Its immediate cleanup otherwise closes the socket mid-handshake.
+      const subscribeTimeout = window.setTimeout(() => {
+        checkForNewWin();
+
+        channel = supabase
+          .channel('giveaway_winners_updates')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'giveaway_winners',
+            },
+            () => {
+              checkForNewWin();
+            }
+          )
+          .subscribe();
+      }, 0);
+
+      return () => {
+        clearTimeout(subscribeTimeout);
+        if (channel) void supabase.removeChannel(channel);
+      };
+    }
+  }, [checkForNewWin, forceShow]);
 
   const handleClose = () => {
     if (winner) {
@@ -93,39 +128,6 @@ export default function GiveawayWinnerPopup({ forceShow = false }: GiveawayWinne
       localStorage.setItem('shownGiveawayWinners', JSON.stringify(shownWinners));
     }
     setShowPopup(false);
-  };
-
-  const createConfetti = () => {
-    const duration = 5000;
-    const end = Date.now() + duration;
-
-    const frame = () => {
-      const timeLeft = end - Date.now();
-
-      if (timeLeft <= 0) {
-        return;
-      }
-
-      const particleCount = 3;
-
-      for (let i = 0; i < particleCount; i++) {
-        const confetti = document.createElement('div');
-        confetti.className = 'confetti-particle';
-        confetti.style.left = Math.random() * 100 + '%';
-        confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
-        confetti.style.animationDelay = (Math.random() * 0.5) + 's';
-        confetti.style.backgroundColor = ['#FFD700', '#FFA500', '#FF69B4', '#00CED1', '#9370DB'][Math.floor(Math.random() * 5)];
-        document.body.appendChild(confetti);
-
-        setTimeout(() => {
-          confetti.remove();
-        }, 5000);
-      }
-
-      requestAnimationFrame(frame);
-    };
-
-    frame();
   };
 
   const formatCurrency = (amount: number) => {

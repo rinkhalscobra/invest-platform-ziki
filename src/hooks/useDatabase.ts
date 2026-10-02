@@ -449,13 +449,35 @@ export const useDatabase = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('kyc_status, referral_code, referral_count, is_demo, is_admin, crm_role')
-        .eq('id', user.id)
-        .single();
+      let data: {
+        kyc_status: 'not_verified' | 'pending' | 'verified' | null;
+        referral_code: string | null;
+        referral_count: number | null;
+        is_demo: boolean | null;
+        is_admin: boolean | null;
+        crm_role: CRMRole | null;
+      } | null = null;
 
-      if (error) throw error;
+      // PostgREST can briefly return PGRST002 while rebuilding its schema cache.
+      // Retry the access-critical profile request so a transient outage does not
+      // leave an administrator displayed as a client for the whole session.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const result = await supabase
+          .from('users')
+          .select('kyc_status, referral_code, referral_count, is_demo, is_admin, crm_role')
+          .eq('id', user.id)
+          .single();
+
+        if (!result.error) {
+          data = result.data;
+          break;
+        }
+
+        const isTransientSchemaCacheError = result.error.code === 'PGRST002';
+        if (!isTransientSchemaCacheError || attempt === 3) throw result.error;
+
+        await new Promise(resolve => window.setTimeout(resolve, 1000 * (attempt + 1)));
+      }
 
       if (data) {
         setKycStatus(data.kyc_status || 'not_verified');

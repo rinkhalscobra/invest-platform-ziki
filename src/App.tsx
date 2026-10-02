@@ -942,7 +942,7 @@ const handleUpdatePassword = async (newPassword: string) => {
   };
 
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="flex min-h-screen flex-col app-page-bg text-white">
           <ProfitLossNotifications userId={user?.id || null} />
           <Routes>

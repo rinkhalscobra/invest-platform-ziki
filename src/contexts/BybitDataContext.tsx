@@ -99,6 +99,7 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const staleCheckIntervalRef = useRef<number | null>(null);
   const lastWsMessageRef = useRef<number>(0);
   const connectRef = useRef<() => void>(() => {});
+  const shouldReconnectRef = useRef(false);
 
   const priceBufferRef = useRef<Map<string, number>>(new Map());
   const previousPricesRef = useRef<Map<string, number>>(new Map());
@@ -202,6 +203,8 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const scheduleReconnect = useCallback(() => {
+    if (!shouldReconnectRef.current || !navigator.onLine) return;
+
     if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
       setConnectionState('disconnected');
       return;
@@ -221,15 +224,20 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const connect = useCallback(() => {
+    if (!shouldReconnectRef.current || !navigator.onLine) return;
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
 
-    if (wsRef.current) {
-      try { wsRef.current.close(); } catch { /* ignore */ }
-      wsRef.current = null;
+    if (
+      wsRef.current?.readyState === WebSocket.CONNECTING ||
+      wsRef.current?.readyState === WebSocket.OPEN
+    ) {
+      return;
     }
+    wsRef.current = null;
 
     if (pingIntervalRef.current) {
       clearInterval(pingIntervalRef.current);
@@ -242,6 +250,11 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const ws = new WebSocket(BYBIT_WS_URL);
 
       ws.onopen = () => {
+        if (!shouldReconnectRef.current || wsRef.current !== ws) {
+          ws.close();
+          return;
+        }
+
         setConnectionState('connected');
         reconnectAttemptsRef.current = 0;
         lastWsMessageRef.current = Date.now();
@@ -260,13 +273,15 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
 
       ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+
         setConnectionState('disconnected');
         wsRef.current = null;
         if (pingIntervalRef.current) {
           clearInterval(pingIntervalRef.current);
           pingIntervalRef.current = null;
         }
-        scheduleReconnect();
+        if (shouldReconnectRef.current) scheduleReconnect();
       };
 
       ws.onerror = () => {
@@ -325,11 +340,18 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   connectRef.current = connect;
 
   useEffect(() => {
+    shouldReconnectRef.current = true;
     loadDatabaseFallback();
     loadRestSnapshot();
-    connect();
+
+    // Deferring connection creation avoids React Strict Mode opening and then
+    // immediately closing a CONNECTING socket during its development-only
+    // effect verification pass.
+    const initialConnectTimeout = window.setTimeout(connect, 0);
 
     return () => {
+      shouldReconnectRef.current = false;
+      clearTimeout(initialConnectTimeout);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
@@ -347,8 +369,17 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         staleCheckIntervalRef.current = null;
       }
       if (wsRef.current) {
-        wsRef.current.close();
+        const ws = wsRef.current;
         wsRef.current = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.onmessage = null;
+        if (ws.readyState === WebSocket.CONNECTING) {
+          ws.onopen = () => ws.close();
+        } else {
+          ws.onopen = null;
+          if (ws.readyState === WebSocket.OPEN) ws.close();
+        }
       }
     };
   }, [connect, loadDatabaseFallback, loadRestSnapshot]);
