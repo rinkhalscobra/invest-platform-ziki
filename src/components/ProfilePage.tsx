@@ -50,7 +50,6 @@ interface ProfilePageProps {
   totalPortfolioValue: number;
   totalPositionsPnl?: number;
   userStatus: UserStatus;
-  isDemoAccount: boolean;
   kycStatus: 'not_verified' | 'pending' | 'verified';
   updateKycStatus: (status: 'not_verified' | 'pending' | 'verified') => void;
   portfolioSnapshots?: any[];
@@ -70,7 +69,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
   totalPortfolioValue,
   totalPositionsPnl = 0,
   userStatus,
-  isDemoAccount,
   kycStatus: propKycStatus,
   updateKycStatus: propUpdateKycStatus,
   portfolioSnapshots,
@@ -268,14 +266,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                 </span>
               </div>
             )}
-          </div>
-
-          <div className={`flex min-w-28 items-center justify-center gap-2 rounded-xl border px-5 py-3 ${isDemoAccount
-            ? 'border-purple-500/30 bg-purple-500/10 text-purple-300'
-            : 'border-violet-500/30 bg-gradient-to-r from-purple-500/20 to-violet-500/10 text-white'
-          }`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${isDemoAccount ? 'bg-purple-400' : 'bg-white'}`} />
-            <span className="text-sm font-semibold">{isDemoAccount ? 'DEMO' : 'LIVE'}</span>
           </div>
 
           <div className={`flex min-w-28 items-center justify-center gap-2 rounded-xl border px-5 py-3 ${currentStatus.classes}`}>

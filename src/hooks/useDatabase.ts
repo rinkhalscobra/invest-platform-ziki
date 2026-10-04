@@ -229,7 +229,6 @@ export const useDatabase = () => {
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [referralCount, setReferralCount] = useState(0);
   const [referredUsers, setReferredUsers] = useState<any[]>([]);
-  const [isDemoAccount, setIsDemoAccount] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [crmRole, setCrmRole] = useState<CRMRole>('client');
 
@@ -453,7 +452,6 @@ export const useDatabase = () => {
         kyc_status: 'not_verified' | 'pending' | 'verified' | null;
         referral_code: string | null;
         referral_count: number | null;
-        is_demo: boolean | null;
         is_admin: boolean | null;
         crm_role: CRMRole | null;
       } | null = null;
@@ -464,7 +462,7 @@ export const useDatabase = () => {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         const result = await supabase
           .from('users')
-          .select('kyc_status, referral_code, referral_count, is_demo, is_admin, crm_role')
+          .select('kyc_status, referral_code, referral_count, is_admin, crm_role')
           .eq('id', user.id)
           .single();
 
@@ -483,7 +481,6 @@ export const useDatabase = () => {
         setKycStatus(data.kyc_status || 'not_verified');
         setReferralCode(data.referral_code);
         setReferralCount(data.referral_count || 0);
-        setIsDemoAccount(data.is_demo || false);
         setIsAdmin(data.is_admin || false);
         setCrmRole((data.crm_role as CRMRole) || (data.is_admin ? 'admin' : 'client'));
       }
@@ -910,7 +907,6 @@ export const useDatabase = () => {
     referralCode,
     referralCount,
     referredUsers,
-    isDemoAccount,
     isAdmin,
     crmRole,
     hasCrmAccess: crmRole !== 'client',
