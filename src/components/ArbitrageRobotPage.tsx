@@ -113,30 +113,14 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     const normalizedSymbol = pair.replace('/', '');
     const snapshotPrice = getSnapshotPriceBySymbol(normalizedSymbol);
     if (snapshotPrice > 0) return snapshotPrice;
-
-    // Stable fallbacks keep the explicitly simulated feed valid while live
-    // market data is reconnecting (and avoid displaying NaN percentages).
-    const fallbackPrices: Record<string, number> = {
-      BTCUSDT: 50000,
-      ETHUSDT: 3000,
-      SOLUSDT: 150,
-      XRPUSDT: 0.6,
-      BNBUSDT: 600,
-      ADAUSDT: 0.5,
-      AVAXUSDT: 35
-    };
-
-    return fallbackPrices[normalizedSymbol] || 1;
+    return 0;
   }, [getSnapshotPriceBySymbol]);
 
-  // Get current price for selected pair using snapshot
-  const getCurrentPrice = useCallback(() => {
-    return getReferencePrice(selectedPair);
-  }, [getReferencePrice, selectedPair]);
+  const getBtcPrice = useCallback(() => getReferencePrice('BTC/USDT'), [getReferencePrice]);
   
   // Generate simulated arbitrage opportunities
   useEffect(() => {
-    const generateArbitrageOpportunity = () => {
+    const generateArbitrageOpportunity = (): ArbitrageOpportunity | null => {
       const exchanges = ['Binance', 'Bybit', 'Kraken', 'Coinbase', 'Kucoin', 'OKX', 'Huobi'];
       const pairs = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT', 'XRP/USDT', 'BNB/USDT', 'ADA/USDT', 'AVAX/USDT'];
       
@@ -148,6 +132,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       
       const pair = pairs[Math.floor(Math.random() * pairs.length)];
       const basePrice = getReferencePrice(pair);
+      if (basePrice <= 0) return null;
       
       const buyPrice = basePrice * (1 - Math.random() * 0.005);
       const sellPrice = basePrice * (1 + Math.random() * 0.005);
@@ -169,9 +154,10 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     if (possibleTrades.length === 0) {
       const initialOpportunities = Array.from({ length: 5 }, (_, i) => {
         const opportunity = generateArbitrageOpportunity();
+        if (!opportunity) return null;
         opportunity.timestamp = new Date(Date.now() - i * 30000); // 30 seconds apart
         return opportunity;
-      });
+      }).filter((opportunity): opportunity is ArbitrageOpportunity => opportunity !== null);
       setPossibleTrades(initialOpportunities);
     }
     
@@ -180,6 +166,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       if (robotState?.is_active) {
         setPossibleTrades(prev => {
           const newOpportunity = generateArbitrageOpportunity();
+          if (!newOpportunity) return prev;
           return [newOpportunity, ...prev].slice(0, 10); // Keep only the 10 most recent
         });
       }
@@ -201,6 +188,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
         const pair = pairs[Math.floor(Math.random() * pairs.length)];
         const amount = (Math.random() * 0.1).toFixed(6);
         const currentPrice = getReferencePrice(pair);
+        if (currentPrice <= 0) return null;
         const price = (action === 'BUY' ? currentPrice * 0.9999 : currentPrice * 1.0001).toFixed(2);
         const profit = (Math.random() * 0.01).toFixed(6);
         
@@ -219,6 +207,7 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       // Generate a new log every 2 minutes if robot is active
       const interval = setInterval(() => {
         const newLog = generateLog();
+        if (!newLog) return;
         setTradingLogs(prev => [newLog, ...prev].slice(0, 100));
       }, 120000);
       
@@ -226,9 +215,10 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
       if (tradingLogs.length === 0) {
         const initialLogs = Array.from({ length: 10 }, (_, i) => {
           const log = generateLog();
+          if (!log) return null;
           log.timestamp = new Date(Date.now() - i * 60000).toISOString();
           return log;
-        });
+        }).filter((log): log is NonNullable<typeof log> => log !== null);
         setTradingLogs(initialLogs);
       }
       
@@ -380,7 +370,8 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
     }
 
     const allocatedBalance = localAllocatedBalance;
-    const btcPrice = getCurrentPrice() || 50000; // Get current BTC price or fallback
+    const btcPrice = getBtcPrice();
+    if (btcPrice <= 0) return 0;
     const allocatedBalanceInBTC = allocatedBalance / btcPrice;
 
     if (allocatedBalanceInBTC >= 50) return 2.1; // WHALE tier (50 BTC)
@@ -416,7 +407,8 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
   // Get investment tier based on allocated balance (in BTC equivalent)
   const getInvestmentTier = () => {
     const allocatedBalance = localAllocatedBalance;
-    const btcPrice = getCurrentPrice() || 50000; // Get current BTC price or fallback
+    const btcPrice = getBtcPrice();
+    if (btcPrice <= 0) return 'NONE';
     const allocatedBalanceInBTC = allocatedBalance / btcPrice;
 
     if (allocatedBalanceInBTC >= 50) return 'WHALE';

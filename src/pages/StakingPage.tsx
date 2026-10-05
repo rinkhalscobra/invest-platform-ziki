@@ -141,8 +141,8 @@ const StakingPage: React.FC<StakingPageProps> = ({
   refreshBreakdown
 }) => {
   const { t } = useTranslation();
-  const { isConnected: isRealtimeConnected } = useMarketData();
-  const { userStakes, addUserStake, calculateCurrentEarnings, cancelUserStake, claimUserStake, fetchUserStakes, coingeckoMarketCapData } = useDatabase();
+  const { isConnected: isRealtimeConnected, getPriceBySymbol } = useMarketData();
+  const { userStakes, addUserStake, calculateCurrentEarnings, cancelUserStake, claimUserStake, fetchUserStakes } = useDatabase();
   const homeBackgroundClass = 'app-page-bg';
   const primaryCardBackgroundClass = 'app-surface-raised';
   const secondaryCardBackgroundClass = 'app-surface-primary';
@@ -215,7 +215,7 @@ const StakingPage: React.FC<StakingPageProps> = ({
       lockPeriods: [30, 60, 90, 180, 365],
       totalStaked: 1250.75,
       balance: btcBalance,
-      price: currentBtcPrice
+      price: 0
     },
     {
       id: 'usdt-stake',
@@ -239,7 +239,7 @@ const StakingPage: React.FC<StakingPageProps> = ({
       lockPeriods: [30, 60, 90, 180, 365],
       totalStaked: 32500.5,
       balance: 0,
-      price: 3500
+      price: 0
     },
     {
       id: 'sol-stake',
@@ -251,27 +251,9 @@ const StakingPage: React.FC<StakingPageProps> = ({
       lockPeriods: [30, 60, 90, 180, 365],
       totalStaked: 185000,
       balance: 0,
-      price: 150
+      price: 0
     }
   ]);
-
-  // Update icon URLs from CoinGecko data when available
-  useEffect(() => {
-    if (coingeckoMarketCapData && coingeckoMarketCapData.length > 0) {
-      setAvailableStakingAssets(prev => 
-        prev.map(asset => {
-          const coinData = coingeckoMarketCapData.find(
-            coin => coin.symbol.toLowerCase() === asset.symbol.toLowerCase()
-          );
-          
-          if (coinData && coinData.image) {
-            return { ...asset, iconUrl: coinData.image };
-          }
-          return asset;
-        })
-      );
-    }
-  }, [coingeckoMarketCapData]);
 
   // Fetch user stakes on mount
   useEffect(() => {
@@ -283,14 +265,18 @@ const StakingPage: React.FC<StakingPageProps> = ({
     setAvailableStakingAssets(prev => 
       prev.map(asset => {
         if (asset.symbol === 'BTC') {
-          return { ...asset, balance: btcBalance, price: currentBtcPrice };
+          return { ...asset, balance: btcBalance, price: getPriceBySymbol('BTCUSDT') || currentBtcPrice || 0 };
         } else if (asset.symbol === 'USDT') {
           return { ...asset, balance: availableBalance || usdtBalance, price: 1 };
+        } else if (asset.symbol === 'ETH') {
+          return { ...asset, price: getPriceBySymbol('ETHUSDT') };
+        } else if (asset.symbol === 'SOL') {
+          return { ...asset, price: getPriceBySymbol('SOLUSDT') };
         }
         return asset;
       })
     );
-  }, [btcBalance, usdtBalance, currentBtcPrice, availableBalance]);
+  }, [btcBalance, usdtBalance, currentBtcPrice, availableBalance, getPriceBySymbol]);
 
   // Clear staking message after 5 seconds
   useEffect(() => {

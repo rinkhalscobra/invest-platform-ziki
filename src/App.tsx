@@ -27,7 +27,6 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import TradingFeesPage from './pages/TradingFeesPage';
-import FinnhubWebSocketTest from './components/FinnhubWebSocketTest';
 import LoadingScreen from './components/LoadingScreen';
 import MarketLoadingScreen from './components/MarketLoadingScreen';
 import AuthModal from './components/AuthModal';
@@ -487,8 +486,11 @@ const handleUpdatePassword = async (newPassword: string) => {
     price?: number
   ) => {
     try {
-      // Use the price parameter directly from the frontend
-      const currentPrice = price || 111445.9000; // Use the displayed price as fallback
+      // Never open a market position without a live price from the shared cache.
+      const currentPrice = Number(price);
+      if (!Number.isFinite(currentPrice) || currentPrice <= 0) {
+        throw new Error(`Live market price is unavailable for ${symbol || selectedPair}`);
+      }
       await fetchBalances();
       
       // Use the openPosition function from useFuturesTrading hook
@@ -1317,10 +1319,6 @@ const handleUpdatePassword = async (newPassword: string) => {
             <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route path="/trading-fees" element={<TradingFeesPage />} />
 
-            {/* Test routes - only accessible when authenticated */}
-            <Route path="/test/finnhub" element={
-              user ? <FinnhubWebSocketTest /> : <Navigate to="/signin" replace />
-            } />
           </Routes>
           
           {/* Auth Modal */}

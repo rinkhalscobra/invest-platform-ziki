@@ -81,7 +81,7 @@ const HomePage: React.FC<HomePageProps> = ({
   userAssets = []
 }) => {
   const { t } = useTranslation();
-  const { fetchPortfolioSnapshots, portfolioSnapshots, createPortfolioSnapshot, coingeckoMarketCapData } = useDatabase();
+  const { fetchPortfolioSnapshots, portfolioSnapshots, createPortfolioSnapshot } = useDatabase();
   const { marketData, isConnected: isRealtimeConnected, getPriceBySymbol } = useMarketData();
   const { getPriceBySymbol: getBybitPrice, getCryptoDataBySymbol } = useBybitData();
   const [activeTab, setActiveTab] = useState<'overview' | 'positions' | 'transactions'>('overview');
@@ -485,23 +485,9 @@ const HomePage: React.FC<HomePageProps> = ({
     }
   };
 
-  // Sort market data by market cap for Market Overview section
+  // Build the overview from the shared live cache in the configured display order.
   const getSortedMarketData = () => {
-    // Create a map of market caps from coingeckoMarketCapData
-    const marketCapMap = new Map<string, number>();
-    const marketImageMap = new Map<string, string>();
-    
-    if (coingeckoMarketCapData && coingeckoMarketCapData.length > 0) {
-      coingeckoMarketCapData.forEach(coin => {
-        marketCapMap.set(coin.symbol.toUpperCase(), coin.market_cap);
-        if (coin.image) {
-          marketImageMap.set(coin.symbol.toUpperCase(), coin.image);
-        }
-      });
-    }
-    
-    // Build the overview from live crypto pairs so the card works even when the CFD feed has no USDT rows.
-    const validMarketData = TOP_CRYPTO_PAIRS.map((pair, index) => {
+    return TOP_CRYPTO_PAIRS.map((pair) => {
       const cryptoData = getCryptoDataBySymbol(pair.symbol);
       const price = cryptoData?.price || getBybitPrice(pair.symbol) || 0;
       const baseSymbol = pair.symbol.replace('USDT', '').toUpperCase();
@@ -510,28 +496,9 @@ const HomePage: React.FC<HomePageProps> = ({
         symbol: pair.symbol,
         price,
         change_24h: cryptoData?.change_24h ?? 0,
-        sortIndex: index,
-        iconUrl: marketImageMap.get(baseSymbol) || MARKET_OVERVIEW_ICON_URLS[baseSymbol] || ''
+        iconUrl: MARKET_OVERVIEW_ICON_URLS[baseSymbol] || ''
       };
-    });
-    
-    // Sort by market cap (descending)
-    return validMarketData.sort((a, b) => {
-      // Extract base symbol (remove USDT)
-      const aSymbol = a.symbol.replace('USDT', '').toLowerCase();
-      const bSymbol = b.symbol.replace('USDT', '').toLowerCase();
-      
-      // Get market caps from map
-      const aMarketCap = marketCapMap.get(aSymbol.toUpperCase()) || 0;
-      const bMarketCap = marketCapMap.get(bSymbol.toUpperCase()) || 0;
-      
-      // Sort by market cap (descending)
-      if (bMarketCap !== aMarketCap) {
-        return bMarketCap - aMarketCap;
-      }
-
-      return a.sortIndex - b.sortIndex;
-    }).slice(0, 5); // Take top 5 for display
+    }).slice(0, 5);
   };
 
   const homeBackgroundClass = 'app-page-bg';

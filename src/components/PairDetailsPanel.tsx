@@ -60,8 +60,8 @@ export default function PairDetailsPanel({ selectedPair, currentPrice, tradingMo
       });
 
       setStats({
-        dayHigh: marketData.high_price_24h || marketData.price * 1.015,
-        dayLow: marketData.low_price_24h || marketData.price * 0.985,
+        dayHigh: marketData.high_price_24h || marketData.price,
+        dayLow: marketData.low_price_24h || marketData.price,
         prevClose: prevClose,
         open: prevClose,
         volume24h: marketData.volume_24h || 0,
@@ -69,18 +69,15 @@ export default function PairDetailsPanel({ selectedPair, currentPrice, tradingMo
         priceChangePercent24h: changePercent24h
       });
     } else if (currentPrice > 0) {
-      console.log('PairDetailsPanel - Market data not found, using fallback with currentPrice:', currentPrice);
-      const volatility = currentPrice * 0.015;
-      const randomChange = (Math.random() - 0.5) * volatility * 2;
-
+      console.log('PairDetailsPanel - Using the last cached market price:', currentPrice);
       setStats({
-        dayHigh: currentPrice + Math.abs(volatility * 0.8),
-        dayLow: currentPrice - Math.abs(volatility * 0.8),
-        prevClose: currentPrice - randomChange * 1.5,
-        open: currentPrice - randomChange * 1.2,
-        volume24h: Math.random() * 10000000 + 1000000,
-        priceChange24h: randomChange,
-        priceChangePercent24h: (randomChange / currentPrice) * 100
+        dayHigh: currentPrice,
+        dayLow: currentPrice,
+        prevClose: currentPrice,
+        open: currentPrice,
+        volume24h: 0,
+        priceChange24h: 0,
+        priceChangePercent24h: 0
       });
     }
   }, [currentPrice, selectedPair, getMarketDataBySymbol]);

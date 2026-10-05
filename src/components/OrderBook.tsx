@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
-import { TrendingUp, TrendingDown, Activity, ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check } from 'lucide-react';
 import { useMarketData } from '../contexts/MarketDataContext';
 import { TradingMode } from '../App';
-
-interface OrderBookEntry {
-  price: number;
-  amount: number;
-  total: number;
-}
 
 interface OrderBookEntry {
   price: number;
@@ -114,14 +107,12 @@ const OrderBook: React.FC<OrderBookProps> = ({
   orderBook,
   tradingMode
 }) => {
-  const { t } = useTranslation();
-  const { getPriceBySymbol } = useMarketData();
+  const { getPriceBySymbol, getMarketDataBySymbol } = useMarketData();
   const [displayMode, setDisplayMode] = useState<'both' | 'bids' | 'asks'>('both');
   const [precision, setPrecision] = useState(2);
   const [grouping, setGrouping] = useState(0.5);
-  const [spread, setSpread] = useState(0);
-  const [spreadPercentage, setSpreadPercentage] = useState(0);
   const currentPrice = getPriceBySymbol(selectedPair);
+  const currentMarket = getMarketDataBySymbol(selectedPair);
   const isFuturesTheme = tradingMode === 'futures';
   const panelSurfaceClass = isFuturesTheme
     ? 'app-surface-primary'
@@ -146,82 +137,19 @@ const OrderBook: React.FC<OrderBookProps> = ({
     { label: '5.0', value: 5 },
   ];
 
-  // Generate simulated order book data if real data is not available
-  const generateSimulatedOrderBook = () => {
-    const simulatedAsks: OrderBookEntry[] = [];
-    const simulatedBids: OrderBookEntry[] = [];
-    
-    // Generate asks (sell orders) above current price
-    let askTotal = 0;
-    for (let i = 0; i < 15; i++) {
-      const price = currentPrice * (1 + (i + 1) * 0.0005);
-      const amount = Math.random() * 2 + 0.1;
-      askTotal += amount;
-      simulatedAsks.push({
-        price,
-        amount,
-        total: askTotal
-      });
-    }
-    
-    // Generate bids (buy orders) below current price
-    let bidTotal = 0;
-    for (let i = 0; i < 15; i++) {
-      const price = currentPrice * (1 - (i + 1) * 0.0005);
-      const amount = Math.random() * 2 + 0.1;
-      bidTotal += amount;
-      simulatedBids.push({
-        price,
-        amount,
-        total: bidTotal
-      });
-    }
-    
-    return {
-      asks: simulatedAsks,
-      bids: simulatedBids,
-      lastUpdateId: Date.now()
-    };
-  };
-
-  // Keep simulated book in state
-const [simulatedOrderBook, setSimulatedOrderBook] = useState(generateSimulatedOrderBook());
-
-// Update gradually every second
-useEffect(() => {
-  const interval = setInterval(() => {
-    setSimulatedOrderBook(prev => {
-      if (!prev) return generateSimulatedOrderBook();
-
-      // Drift asks slightly
-      let askTotal = 0;
-      const newAsks = prev.asks.map(ask => {
-        const newPrice = ask.price * (1 + (Math.random() - 0.5) * 0.0002); // small random walk
-        const newAmount = Math.max(0.01, ask.amount * (1 + (Math.random() - 0.5) * 0.05)); // ±5%
-        askTotal += newAmount;
-        return { ...ask, price: newPrice, amount: newAmount, total: askTotal };
-      });
-
-      // Drift bids slightly
-      let bidTotal = 0;
-      const newBids = prev.bids.map(bid => {
-        const newPrice = bid.price * (1 + (Math.random() - 0.5) * 0.0002);
-        const newAmount = Math.max(0.01, bid.amount * (1 + (Math.random() - 0.5) * 0.05));
-        bidTotal += newAmount;
-        return { ...bid, price: newPrice, amount: newAmount, total: bidTotal };
-      });
-
-      return { asks: newAsks, bids: newBids, lastUpdateId: Date.now() };
-    });
-  }, 1000); // update every 1s
-
-  return () => clearInterval(interval);
-}, [currentPrice]);
-
-// Use real order book if available, otherwise the slower simulated one
+// Use supplied depth when available. Otherwise show only the cached market
+// quote instead of presenting simulated price levels as live depth.
 const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.asks.length > 0
   ? orderBook
-  : simulatedOrderBook;
+  : {
+      asks: currentPrice > 0
+        ? [{ price: currentMarket?.ask_price || currentPrice, amount: 0, total: 0 }]
+        : [],
+      bids: currentPrice > 0
+        ? [{ price: currentMarket?.bid_price || currentPrice, amount: 0, total: 0 }]
+        : [],
+      lastUpdateId: currentMarket?.timestamp ? new Date(currentMarket.timestamp).getTime() : 0
+    };
 
 
   // Format price based on precision
@@ -231,17 +159,17 @@ const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.ask
 
   // Format amount
   const formatAmount = (amount: number) => {
-    return amount.toFixed(4);
+    return amount > 0 ? amount.toFixed(4) : '—';
   };
 
   // Format total
   const formatTotal = (total: number) => {
-    return total.toFixed(4);
+    return total > 0 ? total.toFixed(4) : '—';
   };
 
   // Calculate depth percentage for visualization
   const calculateDepthPercentage = (total: number, maxTotal: number) => {
-    return (total / maxTotal) * 100;
+    return maxTotal > 0 ? (total / maxTotal) * 100 : 0;
   };
 
   // Get max total for visualization scaling
@@ -257,7 +185,7 @@ const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.ask
     <div className={`${panelSurfaceClass} flex h-full min-h-[320px] flex-col`} translate="no">
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-slate-700 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-purple-400 font-semibold">Order Book</h3>
+        <h3 className="text-purple-400 font-semibold">Market Quote</h3>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setDisplayMode('both')}
