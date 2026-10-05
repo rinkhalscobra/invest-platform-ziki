@@ -127,7 +127,7 @@ export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children
       }
     } catch {
       setConnectionState('disconnected');
-      setError('Stored Twelve Data prices are temporarily unavailable');
+      setError('Stored market prices are temporarily unavailable');
     }
   }, []);
 

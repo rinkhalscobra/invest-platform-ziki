@@ -3,7 +3,7 @@ import { TOP_CRYPTO_PAIRS } from '../constants/tradingPairs';
 import { supabase } from '../lib/supabaseClient';
 
 // The exported names are retained for component compatibility; all values in
-// this context now come exclusively from the Twelve Data-backed Edge Function.
+// this context now come from the shared Supabase market cache.
 
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 type PriceDirection = 'up' | 'down' | 'neutral';
@@ -18,7 +18,7 @@ interface CryptoTickerData {
   ask_price: number;
 }
 
-interface TwelveDataMarketRow extends CryptoTickerData {
+interface CachedMarketRow extends CryptoTickerData {
   symbol: string;
   data_provider?: string;
 }
@@ -36,7 +36,7 @@ const BybitDataContext = createContext<BybitDataContextType | undefined>(undefin
 const CRYPTO_SYMBOLS = TOP_CRYPTO_PAIRS.filter(pair => pair.active).map(pair => pair.symbol);
 const SUPABASE_PRICE_REFRESH_MS = 2 * 60 * 1000;
 
-const toTicker = (row: Partial<TwelveDataMarketRow>): CryptoTickerData | null => {
+const toTicker = (row: Partial<CachedMarketRow>): CryptoTickerData | null => {
   const price = Number(row.price);
   if (!Number.isFinite(price) || price <= 0) return null;
   return {
@@ -57,7 +57,7 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const priceDirectionsRef = useRef<Map<string, PriceDirection>>(new Map());
   const previousPricesRef = useRef<Map<string, number>>(new Map());
 
-  const applyRows = useCallback((rows: TwelveDataMarketRow[]) => {
+  const applyRows = useCallback((rows: CachedMarketRow[]) => {
     if (rows.length === 0) return;
     setPrices(previous => {
       const next = new Map(previous);
@@ -86,7 +86,7 @@ export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .eq('data_provider', 'twelve_data');
       if (error) throw error;
       if (data?.length) {
-        applyRows(data as TwelveDataMarketRow[]);
+        applyRows(data as CachedMarketRow[]);
         setConnectionState('connected');
       } else {
         setConnectionState('disconnected');

@@ -447,7 +447,7 @@ export const usePropFirmTrading = () => {
             
           if (marketError || !marketData) {
             console.error('Error fetching current price:', marketError);
-            throw new Error(`Live Twelve Data price is unavailable for ${params.symbol}`);
+            throw new Error(`Live market price is unavailable for ${params.symbol}`);
           } else {
             currentPrice = marketData.price;
             console.log(`Current price for ${params.symbol}: ${currentPrice}`);

@@ -236,8 +236,7 @@ Deno.serve(async (request: Request) => {
       if (cachedBars.length > 0 && cacheAge < SHARED_CACHE_SECONDS * 1000) {
         return json({
           success: true,
-          source: "Supabase cache",
-          provider: "Twelve Data",
+          source: "Supabase market cache",
           symbol: instrument.symbol,
           interval,
           values: cachedBars,
@@ -250,8 +249,7 @@ Deno.serve(async (request: Request) => {
         if (cachedBars.length > 0) {
           return json({
             success: true,
-            source: "Supabase cache",
-            provider: "Twelve Data",
+            source: "Supabase market cache",
             symbol: instrument.symbol,
             interval,
             values: cachedBars,
@@ -289,8 +287,7 @@ Deno.serve(async (request: Request) => {
         await finishRefresh(admin, cacheKey);
         return json({
           success: true,
-          source: "Twelve Data",
-          provider: "Twelve Data",
+          source: "Live market feed",
           symbol: instrument.symbol,
           interval,
           values,
@@ -301,8 +298,7 @@ Deno.serve(async (request: Request) => {
         if (cachedBars.length > 0) {
           return json({
             success: true,
-            source: "Supabase stale cache",
-            provider: "Twelve Data",
+            source: "Supabase stale market cache",
             symbol: instrument.symbol,
             interval,
             values: cachedBars,
@@ -365,7 +361,7 @@ Deno.serve(async (request: Request) => {
     const items = requestedSymbols.map((symbol) => itemMap.get(symbol)).filter(Boolean);
     const responseBody: Record<string, unknown> = {
       success: true,
-      source: "Twelve Data",
+      source: "Supabase market cache",
       cache: fetchedRows.length > 0 ? "refreshed" : "supabase",
       updated: fetchedRows.length,
       unavailable: requestedSymbols.length - items.length,

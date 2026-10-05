@@ -20,7 +20,7 @@ interface TradingChartProps {
   backgroundVariant?: 'default' | 'futures' | 'cfd';
 }
 
-interface TwelveDataBar {
+interface MarketBar {
   datetime: string;
   open: number;
   high: number;
@@ -49,7 +49,7 @@ const formatAxisTime = (value: string, interval: ChartInterval) => {
 
 const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVariant = 'default' }) => {
   const [interval, setInterval] = useState<ChartInterval>('5min');
-  const [bars, setBars] = useState<TwelveDataBar[]>([]);
+  const [bars, setBars] = useState<MarketBar[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -70,13 +70,13 @@ const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVar
         headers: { Authorization: `Bearer ${sessionResult.session.access_token}` }
       });
       if (invokeError) throw invokeError;
-      if (data?.error) throw new Error(data.error);
-      const values = Array.isArray(data?.values) ? data.values as TwelveDataBar[] : [];
-      if (values.length === 0) throw new Error('No Twelve Data chart history is available for this market');
+      if (data?.error) throw new Error('Market history is temporarily unavailable');
+      const values = Array.isArray(data?.values) ? data.values as MarketBar[] : [];
+      if (values.length === 0) throw new Error('No chart history is available for this market');
       setBars([...values].reverse());
       setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load Twelve Data chart');
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load market chart');
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +91,7 @@ const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVar
   const chartData = useMemo(() => ({
     labels: bars.map(bar => formatAxisTime(bar.datetime, interval)),
     datasets: [{
-      label: `${selectedPair} · Twelve Data`,
+      label: selectedPair,
       data: bars.map(bar => bar.close),
       borderColor: '#22c55e',
       backgroundColor: 'rgba(34, 197, 94, 0.10)',
@@ -131,7 +131,7 @@ const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVar
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          Twelve Data via Supabase · refreshed every 2 minutes
+          Live market data · refreshed every 2 minutes
         </div>
         <div className="flex gap-1">
           {intervals.map(value => (
@@ -150,7 +150,7 @@ const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVar
         {bars.length > 0 && <Line data={chartData} options={chartOptions} />}
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm">
-            <div className="text-center text-sm text-slate-300"><div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Loading Twelve Data chart</div>
+            <div className="text-center text-sm text-slate-300"><div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Loading market chart</div>
           </div>
         )}
         {!isLoading && error && bars.length === 0 && (

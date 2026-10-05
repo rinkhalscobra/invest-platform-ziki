@@ -167,11 +167,11 @@ class BackgroundProcessor {
     }
   }
 
-  // Sync the shared Twelve Data market cache. The deployed function keeps its
+  // Sync the shared market cache. The deployed function keeps its
   // legacy name for compatibility with existing clients and schedules.
   async syncMarketData() {
     try {
-      // Refresh the Twelve Data-backed market cache.
+      // Refresh the server-backed market cache.
       
       const result = await this.safeEdgeFunctionCall('sync-bybit-market-data');
       

@@ -111,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({
 
   // Smart price lookup that uses the correct data source regardless of trading mode
   const getConversionRate = (symbol: string): number => {
-    // Crypto pairs use the fast-refresh Twelve Data cache.
+    // Crypto pairs use the shared market cache.
     if (symbol.includes('USDT') && !symbol.includes('/')) {
       return getCryptoPrice(symbol);
     }
@@ -168,7 +168,7 @@ const Header: React.FC<HeaderProps> = ({
   const convertBalance = (balance: number, targetCurrency: string): number => {
     if (targetCurrency === 'USD') return balance;
 
-    // Crypto keeps the app's USDT symbol format while Twelve Data normalization happens server-side.
+    // Crypto keeps the app's USDT symbol format while provider normalization happens server-side.
     if (targetCurrency === 'BTC' || targetCurrency === 'ETH') {
       const cryptoSymbol = `${targetCurrency}USDT`;
       const rate = getConversionRate(cryptoSymbol);

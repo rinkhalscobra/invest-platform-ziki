@@ -26,7 +26,6 @@ Deno.serve(async () => {
       updated: result?.updated || 0,
       unavailable: result?.unavailable || 0,
       itemCount: result?.itemCount || 0,
-      provider: "Twelve Data",
     }), {
       headers: { "Content-Type": "application/json" },
     });

@@ -317,7 +317,7 @@ const handleUpdatePassword = async (newPassword: string) => {
 
   // Get live price for a symbol with fallback (using same strategy as WalletPage)
   const getCurrentPrice = useCallback((symbol: string): number => {
-    // Strategy 1: Use the fast-refresh Twelve Data crypto cache first.
+    // Strategy 1: Use the shared crypto price cache first.
     const bybitPrice = getBybitPrice(symbol);
     if (bybitPrice > 0) {
       return bybitPrice;
@@ -648,7 +648,7 @@ const handleUpdatePassword = async (newPassword: string) => {
         // Strategy 1: Try websocket data first (most real-time)
         const bybitPrice = getBybitPrice(tradingPair);
         if (bybitPrice > 0) {
-          console.log(`App swap: Got Twelve Data price for ${symbol}: ${bybitPrice}`);
+          console.log(`App swap: Got cached market price for ${symbol}: ${bybitPrice}`);
           return bybitPrice;
         }
 

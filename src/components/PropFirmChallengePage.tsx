@@ -1006,7 +1006,7 @@ const PropFirmChallengePage: React.FC<PropFirmChallengePageProps> = ({
           </div>
         </div>
 
-        {/* Twelve Data market chart */}
+        {/* Live market chart */}
         <div className="mb-8">
           <TradingChart
             selectedPair={selectedPair || (tradingMode === 'crypto' ? 'BTCUSDT' : 'AAPL')}
