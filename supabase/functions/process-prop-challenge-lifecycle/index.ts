@@ -172,6 +172,7 @@ serve(async (req) => {
                   .from('market_data')
                   .select('price')
                   .eq('symbol', position.symbol)
+                  .eq('data_provider', 'twelve_data')
                   .order('timestamp', { ascending: false })
                   .limit(1)
                   .single();

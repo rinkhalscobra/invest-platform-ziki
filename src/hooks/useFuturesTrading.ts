@@ -264,6 +264,7 @@ export const useFuturesTrading = () => {
           .from('market_data')
           .select('symbol, price')
           .in('symbol', symbols)
+          .eq('data_provider', 'twelve_data')
           .order('timestamp', { ascending: false });
           
         // Update current prices for positions (this will trigger PnL recalculation)

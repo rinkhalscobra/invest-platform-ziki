@@ -1,277 +1,162 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { TOP_CRYPTO_PAIRS, CFD_INSTRUMENTS } from '../constants/tradingPairs';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+import { CFD_INSTRUMENTS, TOP_CRYPTO_PAIRS } from '../constants/tradingPairs';
+import { supabase } from '../lib/supabaseClient';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
 
 interface TradingChartProps {
   selectedPair: string;
   backgroundVariant?: 'default' | 'futures' | 'cfd';
 }
 
+interface TwelveDataBar {
+  datetime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+const intervals = ['1min', '5min', '15min', '1h', '1day'] as const;
+type ChartInterval = typeof intervals[number];
+const SUPABASE_CHART_REFRESH_MS = 2 * 60 * 1000;
+
+const getInstrumentType = (symbol: string) => {
+  if (TOP_CRYPTO_PAIRS.some(item => item.symbol === symbol) || symbol.endsWith('USDT')) return 'crypto';
+  return CFD_INSTRUMENTS.find(item => item.symbol === symbol)?.type || 'stock';
+};
+
+const formatAxisTime = (value: string, interval: ChartInterval) => {
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T') + 'Z';
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return value;
+  return interval === '1day'
+    ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+};
+
 const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVariant = 'default' }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [interval, setInterval] = useState<ChartInterval>('5min');
+  const [bars, setBars] = useState<TwelveDataBar[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const widgetRef = useRef<any>(null);
-  const isFuturesBackground = backgroundVariant === 'futures';
-  const isCfdBackground = backgroundVariant === 'cfd';
-  const isThemedBackground = isFuturesBackground || isCfdBackground;
-  const widgetBackgroundColor = isThemedBackground ? '#0f172a' : '#0f172a';
-  const widgetGridColor = isThemedBackground ? '#334155' : '#334155';
-  const wrapperBackgroundClass = isFuturesBackground
-    ? 'app-surface-primary'
-    : isCfdBackground
-    ? 'app-surface-primary'
-    : 'bg-slate-900';
-  const overlayBackgroundClass = isFuturesBackground
-    ? 'bg-slate-950/82 backdrop-blur-sm'
-    : isCfdBackground
-    ? 'bg-slate-950/82 backdrop-blur-sm'
-    : 'bg-slate-900/80';
 
-  
-  // Format symbol for TradingView
-  const formatSymbolForTradingView = (symbol: string) => {
-    // For crypto pairs, always use BYBIT exchange as it has the most comprehensive coverage
-    const cryptoPair = TOP_CRYPTO_PAIRS.find(pair => pair.symbol === symbol);
-    if (cryptoPair) {
-      // Use BYBIT for all crypto pairs as it has the most comprehensive symbol coverage
-      return `BYBIT:${symbol}`;
+  const loadSeries = useCallback(async () => {
+    if (!selectedPair) return;
+    setIsLoading(true);
+    try {
+      const { data: sessionResult } = await supabase.auth.getSession();
+      if (!sessionResult.session) throw new Error('Sign in to load live market history');
+      const { data, error: invokeError } = await supabase.functions.invoke('cfd-market-data', {
+        body: {
+          action: 'time_series',
+          symbol: selectedPair,
+          type: getInstrumentType(selectedPair),
+          interval,
+          outputsize: 160,
+        },
+        headers: { Authorization: `Bearer ${sessionResult.session.access_token}` }
+      });
+      if (invokeError) throw invokeError;
+      if (data?.error) throw new Error(data.error);
+      const values = Array.isArray(data?.values) ? data.values as TwelveDataBar[] : [];
+      if (values.length === 0) throw new Error('No Twelve Data chart history is available for this market');
+      setBars([...values].reverse());
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Unable to load Twelve Data chart');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Handle crypto pairs that might not be in TOP_CRYPTO_PAIRS but end with USDT
-    if (symbol.endsWith('USDT')) {
-      return `BYBIT:${symbol}`;
-    }
-
-    const cfdInstrument = CFD_INSTRUMENTS.find(instrument => instrument.symbol === symbol);
-    if (cfdInstrument) {
-      // For CFD instruments, try different exchanges
-      if (cfdInstrument.type === 'forex') {
-        // Convert database format (EUR/USD) to TradingView format (EURUSD)
-        const tvSymbol = symbol.replace('/', '');
-        return tvSymbol; // Let TradingView auto-select the exchange
-      } else if (cfdInstrument.type === 'stock' || cfdInstrument.type === 'index') {
-        return cfdInstrument.tradingViewSymbol || symbol;
-      } else if (cfdInstrument.type === 'commodity') {
-        // Map commodity symbols to valid TradingView symbols
-        switch (symbol) {
-          case 'XAUUSD': 
-  case 'XAU/USD': 
-    return 'XAUUSD';
-
-  case 'XAGUSD': 
-  case 'XAG/USD': 
-    return 'XAGUSD';
-
-  case 'XPTUSD': 
-  case 'XPT/USD': 
-    return 'XPTUSD';
-
-  case 'XPDUSD': 
-  case 'XPD/USD': 
-    return 'XPDUSD';
-
-  case 'WTICOUSD': 
-  case 'WTI/USD': 
-  case 'WTICO/USD':
-    return 'OANDA:WTICOUSD'; // West Texas Oil (OANDA)
-
-case 'BCOUSD':
-case 'Brent Crude':
-case 'Brent Crude Oil':
-case 'BCO/USD':
-  return 'OANDA:BCOUSD'; // Exact CFD symbol on TradingView
-
-
-
-
-
-
-  case 'NATGASUSD':
-case 'NATGAS/USD':
-case 'Natural Gas':
-  return 'OANDA:NATGASUSD'; // US Natural Gas CFD (OANDA, correct scale)
-
-            
-
-  case 'CORNUSD': 
-    return 'ZW1!'; // Wheat
-
-  case 'SOYBNUSD': 
-  case 'Soybean': 
-    return 'CBOT:ZS1!'; // Soybean futures
-              default: 
-    return symbol;
-        }
-      }
-    }
-    
-    // Handle crypto pairs that might not be in TOP_CRYPTO_PAIRS
-    if (symbol.endsWith('USDT')) {
-      return symbol; // Let TradingView auto-select the exchange
-    }
-    
-    return symbol; // Let TradingView auto-select the exchange
-  };
+  }, [interval, selectedPair]);
 
   useEffect(() => {
-    if (!selectedPair) {
-      setError('No trading pair selected');
-      setIsLoading(false);
-      return;
-    }
+    void loadSeries();
+    const timer = window.setInterval(() => void loadSeries(), SUPABASE_CHART_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [interval, loadSeries]);
 
-    // Clear error immediately when pair changes
-    setError(null);
-    // Don't show loading state initially - let the chart load in background
-    setIsLoading(false);
+  const chartData = useMemo(() => ({
+    labels: bars.map(bar => formatAxisTime(bar.datetime, interval)),
+    datasets: [{
+      label: `${selectedPair} · Twelve Data`,
+      data: bars.map(bar => bar.close),
+      borderColor: '#22c55e',
+      backgroundColor: 'rgba(34, 197, 94, 0.10)',
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      fill: true,
+      tension: 0.15,
+    }]
+  }), [bars, interval, selectedPair]);
 
-    // Clean up previous widget
-    if (widgetRef.current) {
-      try {
-        widgetRef.current.remove();
-      } catch (e) {
-        console.warn('Error removing previous widget:', e);
-      }
-      widgetRef.current = null;
-    }
-
-    // Clear container
-    if (containerRef.current) {
-      containerRef.current.innerHTML = '';
-    }
-
-    const loadTradingViewWidget = () => {
-      if (!containerRef.current) {
-        setError('Chart container not available');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const tradingViewSymbol = formatSymbolForTradingView(selectedPair);
-        console.log('Creating TradingView widget for symbol:', tradingViewSymbol);
-
-        // Create the widget using TradingView constructor
-        widgetRef.current = new (window as any).TradingView.widget({
-          autosize: true,
-          symbol: tradingViewSymbol,
-          interval: "1",
-          timezone: "Etc/UTC",
-          theme: "dark",
-          style: "1",
-          locale: "en",
-          enable_publishing: false,
-          backgroundColor: widgetBackgroundColor,
-          gridColor: widgetGridColor,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          save_image: false,
-          container_id: containerRef.current.id,
-          studies: ["Volume@tv-basicstudies"],
-          overrides: {
-            "paneProperties.background": widgetBackgroundColor,
-            "paneProperties.backgroundType": "solid",
-            "paneProperties.vertGridProperties.color": widgetGridColor,
-            "paneProperties.horzGridProperties.color": widgetGridColor,
-            "symbolWatermarkProperties.transparency": 90,
-            "scalesProperties.textColor": "#94a3b8",
-            "mainSeriesProperties.candleStyle.upColor": "#10b981",
-            "mainSeriesProperties.candleStyle.downColor": "#ef4444",
-            "mainSeriesProperties.candleStyle.borderUpColor": "#10b981",
-            "mainSeriesProperties.candleStyle.borderDownColor": "#ef4444",
-            "mainSeriesProperties.candleStyle.wickUpColor": "#10b981",
-            "mainSeriesProperties.candleStyle.wickDownColor": "#ef4444"
-          },
-          onChartReady: () => {
-            console.log('TradingView chart ready for', selectedPair);
-            setIsLoading(false);
-          },
-          onLoadError: (error: any) => {
-            console.error('TradingView chart load error:', error);
-            setError('Failed to load chart');
-            setIsLoading(false);
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false as const,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      legend: { labels: { color: '#cbd5e1', boxWidth: 12 } },
+      tooltip: {
+        callbacks: {
+          afterBody: (items: Array<{ dataIndex: number }>) => {
+            const bar = bars[items[0]?.dataIndex];
+            return bar ? [`O ${bar.open}`, `H ${bar.high}`, `L ${bar.low}`, `C ${bar.close}`] : [];
           }
-        });
-
-        // Fallback timeout to hide loading state if onChartReady doesn't fire
-        const fallbackTimeout = setTimeout(() => {
-          console.log('TradingView chart fallback timeout - hiding loading state');
-          setIsLoading(false);
-        }, 2000);
-        
-        // Store timeout reference for cleanup
-        widgetRef.current._fallbackTimeout = fallbackTimeout;
-
-      } catch (err) {
-        console.error('Error creating TradingView widget:', err);
-        setError('Failed to create chart widget');
-        setIsLoading(false);
-      }
-    };
-
-    // Check if TradingView is already loaded
-    if ((window as any).TradingView) {
-      loadTradingViewWidget();
-    } else {
-      // Load TradingView script
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = 'https://s3.tradingview.com/tv.js';
-      script.async = true;
-      
-      script.onload = () => {
-        console.log('TradingView library loaded');
-        loadTradingViewWidget();
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load TradingView library');
-        setError('Failed to load TradingView library');
-        setIsLoading(false);
-      };
-      
-      document.head.appendChild(script);
-    }
-
-    return () => {
-      if (widgetRef.current) {
-        try {
-          // Clear fallback timeout if it exists
-          if (widgetRef.current._fallbackTimeout) {
-            clearTimeout(widgetRef.current._fallbackTimeout);
-          }
-          widgetRef.current.remove();
-        } catch (e) {
-          console.warn('Error cleaning up widget:', e);
         }
-        widgetRef.current = null;
       }
-    };
-  }, [selectedPair, backgroundVariant, widgetBackgroundColor, widgetGridColor]);
+    },
+    scales: {
+      x: { ticks: { color: '#64748b', maxTicksLimit: 8 }, grid: { color: 'rgba(51,65,85,0.35)' } },
+      y: { position: 'right' as const, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51,65,85,0.45)' } }
+    }
+  }), [bars]);
 
+  const themed = backgroundVariant === 'futures' || backgroundVariant === 'cfd';
   return (
-    <div className={`relative h-full min-h-[280px] overflow-hidden rounded-xl ${wrapperBackgroundClass} sm:min-h-[340px] lg:min-h-[420px] xl:min-h-0`}>
-      {error && (
-        <div className={`absolute inset-0 z-10 flex items-center justify-center ${overlayBackgroundClass}`}>
-          <div className="text-slate-400 text-center">
-            <p className="mb-2">{error}</p>
-            <p className="text-sm">Please select a valid trading pair</p>
-          </div>
+    <div className={`relative flex h-full min-h-[280px] flex-col overflow-hidden rounded-xl ${themed ? 'app-surface-primary' : 'bg-slate-900'} sm:min-h-[340px] lg:min-h-[420px] xl:min-h-0`}>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          Twelve Data via Supabase · refreshed every 2 minutes
         </div>
-      )}
-      {isLoading && !error && (
-        <div className={`absolute inset-0 z-10 flex items-center justify-center ${overlayBackgroundClass}`}>
-          <div className="text-slate-400 text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p>Loading TradingView Chart...</p>
-          </div>
+        <div className="flex gap-1">
+          {intervals.map(value => (
+            <button
+              type="button"
+              key={value}
+              onClick={() => setInterval(value)}
+              className={`rounded-md px-2 py-1 text-[11px] font-semibold ${interval === value ? 'bg-blue-500 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              {value}
+            </button>
+          ))}
         </div>
-      )}
-      <div 
-        ref={containerRef}
-        id={`tradingview_${selectedPair.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`}
-        className="h-full w-full"
-      />
+      </div>
+      <div className="relative min-h-0 flex-1 p-3">
+        {bars.length > 0 && <Line data={chartData} options={chartOptions} />}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm">
+            <div className="text-center text-sm text-slate-300"><div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Loading Twelve Data chart</div>
+          </div>
+        )}
+        {!isLoading && error && bars.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-slate-400">{error}</div>
+        )}
+      </div>
     </div>
   );
 };

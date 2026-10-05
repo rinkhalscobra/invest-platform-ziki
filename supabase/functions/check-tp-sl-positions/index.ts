@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { inferMarketType } from "../_shared/marketSymbols.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,36 +94,25 @@ Deno.serve(async (req: Request) => {
     const uniqueSymbols = [...new Set(positions.map(p => p.symbol))];
     const priceMap: Record<string, number> = {};
 
-    const cryptoSymbols = uniqueSymbols.filter(s => s.endsWith('USDT'));
-    const otherSymbols = uniqueSymbols.filter(s => !s.endsWith('USDT'));
-
-    if (cryptoSymbols.length > 0) {
-      try {
-        console.log(`Fetching live prices for ${cryptoSymbols.length} crypto symbols from Bybit...`);
-        const bybitResponse = await fetch('https://api.bybit.com/v5/market/tickers?category=linear', {
-          headers: { 'Accept': 'application/json' },
-          signal: AbortSignal.timeout(10000)
-        });
-
-        if (bybitResponse.ok) {
-          const bybitData = await bybitResponse.json();
-          if (bybitData?.result?.list) {
-            for (const ticker of bybitData.result.list) {
-              if (cryptoSymbols.includes(ticker.symbol) && ticker.lastPrice) {
-                const price = parseFloat(ticker.lastPrice);
-                if (price > 0) {
-                  priceMap[ticker.symbol] = price;
-                }
-              }
-            }
-            console.log(`Got ${Object.keys(priceMap).length} live prices from Bybit`);
-          }
-        } else {
-          console.warn(`Bybit API returned ${bybitResponse.status}, falling back to database`);
-        }
-      } catch (bybitErr) {
-        console.warn(`Failed to fetch from Bybit API: ${bybitErr.message}, falling back to database`);
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/cfd-market-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
+        body: JSON.stringify({
+          action: 'quotes',
+          instruments: uniqueSymbols.map(symbol => ({ symbol, type: inferMarketType(symbol) })),
+          maxAgeSeconds: 5
+        }),
+        signal: AbortSignal.timeout(20000)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || `Twelve Data returned ${response.status}`);
+      for (const item of result.items || []) {
+        const price = Number(item.price);
+        if (item.symbol && price > 0) priceMap[item.symbol] = price;
       }
+    } catch (marketError) {
+      console.warn(`Twelve Data refresh failed; using the shared database cache: ${marketError instanceof Error ? marketError.message : marketError}`);
     }
 
     const symbolsNeedingDbFallback = uniqueSymbols.filter(s => !priceMap[s]);
@@ -134,6 +124,7 @@ Deno.serve(async (req: Request) => {
           .from('market_data')
           .select('price')
           .eq('symbol', symbol)
+          .eq('data_provider', 'twelve_data')
           .order('timestamp', { ascending: false })
           .limit(1)
           .maybeSingle();

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { wsSymbolToAppSymbol } from '../utils/symbolMapping';
 import {
   CFD_INSTRUMENTS,
+  TOP_CRYPTO_PAIRS,
   getCfdInstrument,
   resolveCfdAppSymbol
 } from '../constants/tradingPairs';
@@ -45,9 +46,16 @@ interface MarketDataProviderProps {
   children: React.ReactNode;
 }
 
-const FREE_PRICE_INSTRUMENTS = CFD_INSTRUMENTS
-  .filter(instrument => instrument.active && instrument.tradable !== false)
-  .map(instrument => ({ symbol: instrument.symbol, type: instrument.type }));
+const FREE_PRICE_INSTRUMENTS = [
+  ...TOP_CRYPTO_PAIRS.filter(instrument => instrument.active).map(instrument => ({
+    symbol: instrument.symbol,
+    type: instrument.type
+  })),
+  ...CFD_INSTRUMENTS
+    .filter(instrument => instrument.active && instrument.tradable !== false)
+    .map(instrument => ({ symbol: instrument.symbol, type: instrument.type }))
+];
+const SUPABASE_PRICE_REFRESH_MS = 2 * 60 * 1000;
 
 export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children }) => {
   const [marketData, setMarketData] = useState<MarketDataItem[]>([]);
@@ -65,8 +73,9 @@ export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children
       for (let index = 0; index < cfdSymbols.length; index += 100) {
         const { data, error: dbError } = await supabase
           .from('market_data')
-          .select('symbol, price, change_24h, high_price_24h, low_price_24h, volume_24h, timestamp, bid_price, ask_price, updated_at')
-          .in('symbol', cfdSymbols.slice(index, index + 100));
+          .select('symbol, price, change_24h, high_price_24h, low_price_24h, volume_24h, timestamp, bid_price, ask_price, updated_at, data_provider')
+          .in('symbol', cfdSymbols.slice(index, index + 100))
+          .eq('data_provider', 'twelve_data');
 
         if (dbError) throw dbError;
         if (data) rows.push(...data);
@@ -112,22 +121,15 @@ export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children
           setConnectionState('connected');
           setError(null);
         }
+      } else {
+        setConnectionState('disconnected');
+        setError('The shared market cache has not been populated yet');
       }
     } catch {
       setConnectionState('disconnected');
-      setError('Stored CFD prices are temporarily unavailable');
+      setError('Stored Twelve Data prices are temporarily unavailable');
     }
   }, []);
-
-  const refreshFreeMarketCache = useCallback(async () => {
-    const { data: sessionResult } = await supabase.auth.getSession();
-    if (!sessionResult.session) return;
-    const { error: refreshError } = await supabase.functions.invoke('cfd-market-data', {
-      body: { instruments: FREE_PRICE_INSTRUMENTS },
-      headers: { Authorization: `Bearer ${sessionResult.session.access_token}` }
-    });
-    if (!refreshError) await loadDatabaseFallback();
-  }, [loadDatabaseFallback]);
 
   const getMarketDataBySymbol = useCallback((symbol: string): MarketDataItem | null => {
     const appSymbol = resolveCfdAppSymbol(symbol) || wsSymbolToAppSymbol(symbol);
@@ -140,7 +142,8 @@ export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children
   }, [getMarketDataBySymbol]);
 
   const getSnapshotPriceBySymbol = useCallback((symbol: string): number => {
-    const item = snapshotData.find(item => item.symbol === symbol);
+    const appSymbol = resolveCfdAppSymbol(symbol) || wsSymbolToAppSymbol(symbol);
+    const item = snapshotData.find(entry => entry.symbol === appSymbol);
     return item?.price || 0;
   }, [snapshotData]);
 
@@ -151,14 +154,14 @@ export const MarketDataProvider: React.FC<MarketDataProviderProps> = ({ children
 
   useEffect(() => {
     void loadDatabaseFallback();
-    void refreshFreeMarketCache();
-    const databaseInterval = window.setInterval(() => void loadDatabaseFallback(), 5 * 60 * 1000);
-    const apiInterval = window.setInterval(() => void refreshFreeMarketCache(), 15 * 60 * 1000);
+    const databaseInterval = window.setInterval(
+      () => void loadDatabaseFallback(),
+      SUPABASE_PRICE_REFRESH_MS
+    );
     return () => {
       window.clearInterval(databaseInterval);
-      window.clearInterval(apiInterval);
     };
-  }, [loadDatabaseFallback, refreshFreeMarketCache]);
+  }, [loadDatabaseFallback]);
 
   useEffect(() => {
     const handleOnline = () => void loadDatabaseFallback();

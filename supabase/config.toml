@@ -14,3 +14,8 @@ verify_jwt = false
 [functions.cfd-market-data]
 # Browser preflight is public; the function validates the user JWT internally.
 verify_jwt = false
+
+[functions.scheduled-market-sync]
+# pg_cron calls this worker without a user JWT. API-credit protection is
+# enforced by the atomic refresh lease inside cfd-market-data.
+verify_jwt = false

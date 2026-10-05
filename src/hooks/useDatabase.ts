@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './useAuth';
 import { TOP_CRYPTO_PAIRS, CFD_INSTRUMENTS } from '../constants/tradingPairs';
+import { CRMPermission, CRMRole, permissionsForRole } from '../lib/crmPermissions';
+
+export type { CRMRole } from '../lib/crmPermissions';
 
 export interface MarketData {
   id?: string;
@@ -210,8 +213,6 @@ export interface CoinGeckoToken {
   price_change_percentage_24h: number;
 }
 
-export type CRMRole = 'admin' | 'superior_manager' | 'manager' | 'agent' | 'client';
-
 export const useDatabase = () => {
   const { user, loading: authLoading } = useAuth();
   const [balances, setBalances] = useState({ usdt_balance: 0, btc_balance: 0 });
@@ -231,6 +232,7 @@ export const useDatabase = () => {
   const [referredUsers, setReferredUsers] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [crmRole, setCrmRole] = useState<CRMRole>('client');
+  const [crmPermissions, setCrmPermissions] = useState<Record<CRMPermission, boolean>>(permissionsForRole('client'));
 
   // Fetch user balances
   const fetchBalances = useCallback(async () => {
@@ -454,6 +456,7 @@ export const useDatabase = () => {
         referral_count: number | null;
         is_admin: boolean | null;
         crm_role: CRMRole | null;
+        crm_permissions: Partial<Record<CRMPermission, boolean>> | null;
       } | null = null;
 
       // PostgREST can briefly return PGRST002 while rebuilding its schema cache.
@@ -462,7 +465,7 @@ export const useDatabase = () => {
       for (let attempt = 0; attempt < 4; attempt += 1) {
         const result = await supabase
           .from('users')
-          .select('kyc_status, referral_code, referral_count, is_admin, crm_role')
+          .select('kyc_status, referral_code, referral_count, is_admin, crm_role, crm_permissions')
           .eq('id', user.id)
           .single();
 
@@ -482,7 +485,9 @@ export const useDatabase = () => {
         setReferralCode(data.referral_code);
         setReferralCount(data.referral_count || 0);
         setIsAdmin(data.is_admin || false);
-        setCrmRole((data.crm_role as CRMRole) || (data.is_admin ? 'admin' : 'client'));
+        const nextRole = (data.crm_role as CRMRole) || (data.is_admin ? 'admin' : 'client');
+        setCrmRole(nextRole);
+        setCrmPermissions({ ...permissionsForRole(nextRole), ...(data.crm_permissions || {}) });
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -938,7 +943,8 @@ export const useDatabase = () => {
     referredUsers,
     isAdmin,
     crmRole,
-    hasCrmAccess: crmRole !== 'client',
+    crmPermissions,
+    hasCrmAccess: crmPermissions['crm.view'],
     fetchRobotState,
     fetchTransactions,
     fetchUserStakes,

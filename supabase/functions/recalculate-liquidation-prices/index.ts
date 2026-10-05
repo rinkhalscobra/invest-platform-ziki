@@ -74,6 +74,7 @@ serve(async (req) => {
       .from('market_data')
       .select('symbol, price')
       .in('symbol', symbols)
+      .eq('data_provider', 'twelve_data')
       .filter('timestamp', 'gt', new Date(Date.now() - 15 * 1000).toISOString()); // Last 15 seconds
       
     if (marketError) {

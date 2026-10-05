@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import CRMHierarchyPanel, { CRMRole } from './CRMHierarchyPanel';
+import { CRMPermission, permissionsForRole } from '../lib/crmPermissions';
 
 type JsonRow = Record<string, unknown>;
 type CRMTab = 'dashboard' | 'profile' | 'wallet' | 'swap' | 'futures' | 'cfd' | 'prop' | 'robot' | 'events' | 'staking' | 'wheel' | 'deposits' | 'referrals' | 'support' | 'notifications' | 'audit';
@@ -436,6 +437,9 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   const [newPassword, setNewPassword] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [crmView, setCrmView] = useState<'workspaces' | 'hierarchy'>('workspaces');
+  const [crmPermissions, setCrmPermissions] = useState<Record<CRMPermission, boolean>>(
+    permissionsForRole(isAdmin ? 'admin' : 'client')
+  );
 
   const showError = (error: unknown) => {
     const text = error instanceof Error ? error.message : 'The CRM request failed';
@@ -524,6 +528,15 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   useEffect(() => {
     void supabase.auth.getUser().then(({ data }) => setCurrentAdminId(data.user?.id || ''));
   }, []);
+
+  useEffect(() => {
+    void supabase.rpc('crm_get_context').then(({ data, error }) => {
+      if (error || !data) return;
+      const context = data as { actor_role?: CRMRole; permissions?: Partial<Record<CRMPermission, boolean>> };
+      const role = context.actor_role || (isAdmin ? 'admin' : 'client');
+      setCrmPermissions({ ...permissionsForRole(role), ...(context.permissions || {}) });
+    });
+  }, [isAdmin]);
 
   useEffect(() => {
     setNewPassword('');
@@ -828,6 +841,32 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
     }, `${title} record deleted`);
   };
 
+  const tabs = useMemo<Array<{ key: CRMTab; label: string; icon: React.ElementType; permission: CRMPermission }>>(() => [
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'crm.view' },
+    { key: 'profile', label: 'Profile', icon: UserCog, permission: 'customers.manage' },
+    { key: 'wallet', label: 'Wallet', icon: Wallet, permission: 'wallet.manage' },
+    { key: 'swap', label: 'Swap', icon: RefreshCw, permission: 'trading.manage' },
+    { key: 'futures', label: 'Futures', icon: TrendingUp, permission: 'trading.manage' },
+    { key: 'cfd', label: 'CFD', icon: Activity, permission: 'trading.manage' },
+    { key: 'prop', label: 'Prop', icon: Briefcase, permission: 'trading.manage' },
+    { key: 'robot', label: 'Robot', icon: Bot, permission: 'robot.manage' },
+    { key: 'events', label: 'Events', icon: Sparkles, permission: 'trading.manage' },
+    { key: 'staking', label: 'Staking', icon: Landmark, permission: 'trading.manage' },
+    { key: 'wheel', label: 'Spin Wheel', icon: Gift, permission: 'trading.manage' },
+    { key: 'deposits', label: 'Payments', icon: CreditCard, permission: 'deposits.review' },
+    { key: 'referrals', label: 'Referrals', icon: Users, permission: 'trading.manage' },
+    { key: 'support', label: 'Support', icon: Headphones, permission: 'support.manage' },
+    { key: 'notifications', label: 'Notifications', icon: Bell, permission: 'notifications.send' },
+    { key: 'audit', label: 'Audit', icon: Database, permission: 'audit.view' }
+  ].filter(item => crmPermissions[item.permission]), [crmPermissions]);
+
+  useEffect(() => {
+    if (!tabs.some(item => item.key === tab)) setTab(tabs[0]?.key || 'dashboard');
+    if (crmView === 'hierarchy' && !crmPermissions['hierarchy.manage'] && !crmPermissions['users.manage']) {
+      setCrmView('workspaces');
+    }
+  }, [crmPermissions, crmView, tab, tabs]);
+
   if (!hasAccess) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center p-6">
@@ -841,24 +880,6 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   }
 
   const profile = workspace?.profile;
-  const tabs: Array<{ key: CRMTab; label: string; icon: React.ElementType }> = [
-    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { key: 'profile', label: 'Profile', icon: UserCog },
-    { key: 'wallet', label: 'Wallet', icon: Wallet },
-    { key: 'swap', label: 'Swap', icon: RefreshCw },
-    { key: 'futures', label: 'Futures', icon: TrendingUp },
-    { key: 'cfd', label: 'CFD', icon: Activity },
-    { key: 'prop', label: 'Prop', icon: Briefcase },
-    { key: 'robot', label: 'Robot', icon: Bot },
-    { key: 'events', label: 'Events', icon: Sparkles },
-    { key: 'staking', label: 'Staking', icon: Landmark },
-    { key: 'wheel', label: 'Spin Wheel', icon: Gift },
-    { key: 'deposits', label: 'Deposits', icon: CreditCard },
-    { key: 'referrals', label: 'Referrals', icon: Users },
-    { key: 'support', label: 'Support', icon: Headphones },
-    { key: 'notifications', label: 'Notifications', icon: Bell },
-    { key: 'audit', label: 'Audit', icon: Database }
-  ];
 
   const managedSection = (title: string, table: string, rows: JsonRow[], removable = true) => (
     <RecordSection
@@ -893,7 +914,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-xl border border-slate-700 bg-slate-900 p-1">
               <button onClick={() => setCrmView('workspaces')} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${crmView === 'workspaces' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}><Users size={16} />User workspaces</button>
-              <button onClick={() => setCrmView('hierarchy')} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${crmView === 'hierarchy' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}><Network size={16} />Hierarchy</button>
+              {(crmPermissions['hierarchy.manage'] || crmPermissions['users.manage']) && <button onClick={() => setCrmView('hierarchy')} className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition ${crmView === 'hierarchy' ? 'bg-purple-500 text-white' : 'text-slate-400 hover:text-white'}`}><Network size={16} />Hierarchy & users</button>}
             </div>
             <button onClick={() => void refreshAll()} className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm text-slate-300 hover:border-purple-500/50 hover:text-white">
               <RefreshCw size={16} className={loadingUsers || loadingWorkspace ? 'animate-spin' : ''} /> Refresh CRM

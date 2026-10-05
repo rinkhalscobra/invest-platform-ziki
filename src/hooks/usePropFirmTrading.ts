@@ -440,23 +440,21 @@ export const usePropFirmTrading = () => {
             .from('market_data')
             .select('price')
             .eq('symbol', params.symbol)
+            .eq('data_provider', 'twelve_data')
             .order('timestamp', { ascending: false })
             .limit(1)
             .maybeSingle();
             
           if (marketError || !marketData) {
             console.error('Error fetching current price:', marketError);
-            // Use a fallback price if market data is not available
-            currentPrice = 65000; // Default BTC price as fallback
-            console.log(`Using fallback price: ${currentPrice}`);
+            throw new Error(`Live Twelve Data price is unavailable for ${params.symbol}`);
           } else {
             currentPrice = marketData.price;
             console.log(`Current price for ${params.symbol}: ${currentPrice}`);
           }
         } catch (priceError) {
           console.error('Exception fetching price:', priceError);
-          currentPrice = 65000; // Default BTC price as fallback
-          console.log(`Using fallback price after error: ${currentPrice}`);
+          throw priceError;
         }
         
         // Get account balance from robot state

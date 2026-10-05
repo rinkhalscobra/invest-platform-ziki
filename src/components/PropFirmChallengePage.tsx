@@ -1006,7 +1006,7 @@ const PropFirmChallengePage: React.FC<PropFirmChallengePageProps> = ({
           </div>
         </div>
 
-        {/* TradingView Chart */}
+        {/* Twelve Data market chart */}
         <div className="mb-8">
           <TradingChart
             selectedPair={selectedPair || (tradingMode === 'crypto' ? 'BTCUSDT' : 'AAPL')}

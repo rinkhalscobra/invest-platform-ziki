@@ -68,7 +68,7 @@ export const TOP_CRYPTO_PAIRS: CryptoPairConfig[] = [
   { symbol: 'XTZUSDT', name: 'Tezos', type: 'crypto', active: true, priority: 'normal' },
   { symbol: 'AUSDT', name: 'Vaulta (formerly EOS)', type: 'crypto', active: true, priority: 'normal' },
   { symbol: 'RENDERUSDT', name: 'Render', type: 'crypto', active: true, priority: 'normal' },
-  { symbol: 'KASUSDT', name: 'Kaspa', type: 'crypto', active: true, priority: 'normal' },
+  { symbol: 'KASUSDT', name: 'Kaspa (not available from Twelve Data)', type: 'crypto', active: false, priority: 'normal' },
 ];
 
 const CFD_INSTRUMENTS_BASE: CfdInstrumentConfig[] = [
@@ -162,7 +162,7 @@ const CFD_INSTRUMENTS_BASE: CfdInstrumentConfig[] = [
   // Approved Commodities Only
   // Working Commodities (from your WebSocket test)
   { symbol: 'XAG/USD', name: 'Silver/USD', type: 'commodity', active: true },
-  { symbol: 'NATGAS/USD', name: 'Natural Gas', type: 'commodity', active: true },
+  { symbol: 'NATGAS/USD', name: 'Natural Gas (UNG proxy)', type: 'commodity', active: true },
   { symbol: 'BCO/USD', name: 'Brent Crude', type: 'commodity', active: true },
   { symbol: 'WTICO/USD', name: 'WTI Crude Oil', type: 'commodity', active: true },
   { symbol: 'XPT/USD', name: 'Platinum/USD', type: 'commodity', active: true },

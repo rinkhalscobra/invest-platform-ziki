@@ -7,12 +7,21 @@ import {
   RefreshCw,
   Save,
   ShieldCheck,
+  UserPlus,
   UserRound,
   Users
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import {
+  CRMPermission,
+  CRMRole,
+  crmPermissionOptions,
+  crmRoleLabels,
+  crmRoles,
+  permissionsForRole
+} from '../lib/crmPermissions';
 
-export type CRMRole = 'admin' | 'superior_manager' | 'manager' | 'agent' | 'client';
+export type { CRMRole } from '../lib/crmPermissions';
 
 interface HierarchyUser {
   id: string;
@@ -21,6 +30,7 @@ interface HierarchyUser {
   last_name?: string | null;
   crm_role: CRMRole;
   crm_parent_id?: string | null;
+  crm_permissions?: Partial<Record<CRMPermission, boolean>> | null;
   direct_reports?: number;
   branch_size?: number;
 }
@@ -30,7 +40,9 @@ interface CRMContext {
   actor_role: CRMRole;
   actor_name: string;
   can_manage_hierarchy: boolean;
+  can_manage_users: boolean;
   has_workspace_access: boolean;
+  permissions: Record<CRMPermission, boolean>;
 }
 
 interface HierarchyPayload {
@@ -44,37 +56,36 @@ interface CRMHierarchyPanelProps {
   onHierarchyChanged: () => Promise<void> | void;
 }
 
-const roles: CRMRole[] = ['admin', 'superior_manager', 'manager', 'agent', 'client'];
-
-const roleLabels: Record<CRMRole, string> = {
-  admin: 'Admin',
-  superior_manager: 'Superior Manager',
-  manager: 'Manager',
-  agent: 'Agent',
-  client: 'Client'
-};
-
 const roleDescriptions: Record<CRMRole, string> = {
   admin: 'Full access to the entire CRM',
-  superior_manager: 'Own managers, agents, and clients',
-  manager: 'Own agents and their clients',
+  retention: 'Own managers, agents, clients, payments, and retention tools',
+  manager: 'Own agents and their assigned clients',
   agent: 'Only directly assigned clients',
   client: 'No CRM workspace access'
 };
 
 const roleStyles: Record<CRMRole, string> = {
   admin: 'border-sky-400/35 bg-sky-500/10 text-sky-300',
-  superior_manager: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-300',
+  retention: 'border-pink-400/35 bg-pink-500/10 text-pink-300',
   manager: 'border-orange-400/35 bg-orange-500/10 text-orange-300',
   agent: 'border-violet-400/35 bg-violet-500/10 text-violet-300',
   client: 'border-slate-500/35 bg-slate-500/10 text-slate-300'
 };
 
-const requiredParentRole: Partial<Record<CRMRole, CRMRole>> = {
-  superior_manager: 'admin',
-  manager: 'superior_manager',
-  agent: 'manager',
-  client: 'agent'
+const requiredParentRoles: Partial<Record<CRMRole, CRMRole[]>> = {
+  retention: ['admin'],
+  manager: ['retention'],
+  agent: ['manager'],
+  client: ['agent']
+};
+
+const emptyCreateForm = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  password: '',
+  role: 'client' as CRMRole,
+  parentId: ''
 };
 
 const displayName = (user: HierarchyUser) => {
@@ -93,6 +104,10 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<CRMRole>('client');
   const [selectedParentId, setSelectedParentId] = useState('');
+  const [selectedPermissions, setSelectedPermissions] = useState(permissionsForRole('client'));
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createPermissions, setCreatePermissions] = useState(permissionsForRole('client'));
+  const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -130,6 +145,10 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
     if (!selectedUser) return;
     setSelectedRole(selectedUser.crm_role);
     setSelectedParentId(selectedUser.crm_parent_id || '');
+    setSelectedPermissions({
+      ...permissionsForRole(selectedUser.crm_role),
+      ...(selectedUser.crm_permissions || {})
+    });
   }, [selectedUser]);
 
   const usersById = useMemo(() => new Map(users.map(user => [user.id, user])), [users]);
@@ -139,15 +158,21 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
       const parentKey = user.crm_parent_id && usersById.has(user.crm_parent_id) ? user.crm_parent_id : 'root';
       map.set(parentKey, [...(map.get(parentKey) || []), user]);
     });
-    map.forEach(children => children.sort((a, b) => roles.indexOf(a.crm_role) - roles.indexOf(b.crm_role) || displayName(a).localeCompare(displayName(b))));
+    map.forEach(children => children.sort((a, b) => crmRoles.indexOf(a.crm_role) - crmRoles.indexOf(b.crm_role) || displayName(a).localeCompare(displayName(b))));
     return map;
   }, [users, usersById]);
 
   const parentCandidates = useMemo(() => {
-    const parentRole = requiredParentRole[selectedRole];
-    if (!parentRole) return [];
-    return users.filter(user => user.crm_role === parentRole && user.id !== selectedId);
+    const parentRoles = requiredParentRoles[selectedRole];
+    if (!parentRoles) return [];
+    return users.filter(user => parentRoles.includes(user.crm_role) && user.id !== selectedId);
   }, [selectedId, selectedRole, users]);
+
+  const createParentCandidates = useMemo(() => {
+    const parentRoles = requiredParentRoles[createForm.role];
+    if (!parentRoles) return [];
+    return users.filter(user => parentRoles.includes(user.crm_role));
+  }, [createForm.role, users]);
 
   useEffect(() => {
     if (selectedRole === 'admin') {
@@ -158,18 +183,40 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
     if (!parentIsValid) setSelectedParentId('');
   }, [parentCandidates, selectedParentId, selectedRole]);
 
+  useEffect(() => {
+    if (createForm.role === 'admin') {
+      setCreateForm(current => ({ ...current, parentId: '' }));
+      return;
+    }
+    if (createForm.parentId && !createParentCandidates.some(user => user.id === createForm.parentId)) {
+      setCreateForm(current => ({ ...current, parentId: '' }));
+    }
+  }, [createForm.parentId, createForm.role, createParentCandidates]);
+
+  const changeSelectedRole = (role: CRMRole) => {
+    setSelectedRole(role);
+    setSelectedPermissions(permissionsForRole(role));
+  };
+
+  const changeCreateRole = (role: CRMRole) => {
+    setCreateForm(current => ({ ...current, role, parentId: '' }));
+    setCreatePermissions(permissionsForRole(role));
+  };
+
   const saveHierarchy = async () => {
     if (!selectedUser || !context?.can_manage_hierarchy) return;
     if (selectedRole !== 'admin' && selectedRole !== 'client' && !selectedParentId) {
-      setStatus({ type: 'error', text: `${roleLabels[selectedRole]} requires a ${roleLabels[requiredParentRole[selectedRole] as CRMRole]}.` });
+      const required = requiredParentRoles[selectedRole]?.map(role => crmRoleLabels[role]).join(' or ');
+      setStatus({ type: 'error', text: `${crmRoleLabels[selectedRole]} requires a ${required}.` });
       return;
     }
     setSaving(true);
     setStatus(null);
-    const { error } = await supabase.rpc('crm_update_hierarchy', {
+    const { error } = await supabase.rpc('crm_update_user_access', {
       p_target_user_id: selectedUser.id,
       p_role: selectedRole,
       p_parent_user_id: selectedParentId || null,
+      p_permissions: selectedPermissions,
       p_reason: reason
     });
     setSaving(false);
@@ -177,8 +224,85 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
       setStatus({ type: 'error', text: error.message });
       return;
     }
-    setStatus({ type: 'success', text: `${displayName(selectedUser)} is now assigned as ${roleLabels[selectedRole]}.` });
+    setStatus({ type: 'success', text: `${displayName(selectedUser)} is now assigned as ${crmRoleLabels[selectedRole]}.` });
     await Promise.all([loadHierarchy(), onHierarchyChanged()]);
+  };
+
+  const invokeUserManagement = async (body: Record<string, unknown>) => {
+    const { data: sessionResult } = await supabase.auth.getSession();
+    if (!sessionResult.session) throw new Error('Administrator session expired. Sign in again.');
+
+    const call = (accessToken: string) => supabase.functions.invoke('admin-user-management', {
+      body,
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    let result = await call(sessionResult.session.access_token);
+    const firstResponse = (result.error as { context?: Response } | null)?.context;
+    if (firstResponse instanceof Response && firstResponse.status === 401) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshed.session) throw new Error('Administrator session expired. Sign in again.');
+      result = await call(refreshed.session.access_token);
+    }
+    if (result.error) {
+      let detail = result.error.message;
+      const response = (result.error as { context?: Response }).context;
+      if (response instanceof Response) {
+        try {
+          const payload = await response.clone().json() as { error?: string };
+          detail = payload.error || detail;
+        } catch {
+          // Keep the SDK error when the response is not JSON.
+        }
+      }
+      throw new Error(detail);
+    }
+    const payload = result.data as { error?: string } | null;
+    if (payload?.error) throw new Error(payload.error);
+  };
+
+  const createUser = async () => {
+    if (!context?.can_manage_users) return;
+    if (!reason.trim()) {
+      setStatus({ type: 'error', text: 'Enter an audit reason before creating a user.' });
+      return;
+    }
+    if (!createForm.firstName.trim() || !createForm.lastName.trim() || !createForm.email.trim()) {
+      setStatus({ type: 'error', text: 'First name, last name and email are required.' });
+      return;
+    }
+    if (createForm.password.length < 8) {
+      setStatus({ type: 'error', text: 'The temporary password must contain at least 8 characters.' });
+      return;
+    }
+    if (createForm.role !== 'admin' && createForm.role !== 'client' && !createForm.parentId) {
+      setStatus({ type: 'error', text: `${crmRoleLabels[createForm.role]} requires a reporting manager.` });
+      return;
+    }
+
+    setCreating(true);
+    setStatus(null);
+    try {
+      await invokeUserManagement({
+        action: 'create_user',
+        email: createForm.email,
+        password: createForm.password,
+        first_name: createForm.firstName,
+        last_name: createForm.lastName,
+        role: createForm.role,
+        parent_user_id: createForm.parentId || null,
+        permissions: createPermissions,
+        reason
+      });
+      setStatus({ type: 'success', text: `${createForm.email.trim().toLowerCase()} was created as ${crmRoleLabels[createForm.role]}.` });
+      setCreateForm(emptyCreateForm);
+      setCreatePermissions(permissionsForRole('client'));
+      await Promise.all([loadHierarchy(), onHierarchyChanged()]);
+    } catch (error) {
+      setStatus({ type: 'error', text: error instanceof Error ? error.message : 'Could not create the user.' });
+    } finally {
+      setCreating(false);
+    }
   };
 
   const renderNode = (user: HierarchyUser, depth = 0): React.ReactNode => {
@@ -208,7 +332,7 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
               </span>
             </button>
           </div>
-          <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${roleStyles[user.crm_role]}`}>{roleLabels[user.crm_role]}</span></div>
+          <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${roleStyles[user.crm_role]}`}>{crmRoleLabels[user.crm_role]}</span></div>
           <div className="text-sm text-slate-300"><span className="font-semibold text-white">{user.direct_reports || 0}</span> direct</div>
           <div className="flex justify-end">
             {!isCurrentUser && (
@@ -236,15 +360,15 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
             <p className="mt-1 text-sm text-slate-400">Access flows upward through assigned branches and never sideways.</p>
           </div>
           <div className="flex items-center gap-3">
-            {context && <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${roleStyles[context.actor_role]}`}>Signed in as {roleLabels[context.actor_role]}</span>}
+            {context && <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${roleStyles[context.actor_role]}`}>Signed in as {crmRoleLabels[context.actor_role]}</span>}
             <button type="button" onClick={() => void loadHierarchy()} className="rounded-xl border border-slate-700 p-2.5 text-slate-400 hover:border-purple-500/50 hover:text-white" aria-label="Refresh hierarchy"><RefreshCw size={17} /></button>
           </div>
         </div>
 
         <div className="grid gap-px bg-slate-800 sm:grid-cols-2 xl:grid-cols-5">
-          {roles.map(role => (
+          {crmRoles.map(role => (
             <div key={role} className="bg-slate-900/95 p-4">
-              <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${roleStyles[role]}`}>{roleLabels[role]}</span><span className="text-xl font-bold text-white">{roleCounts[role] || 0}</span></div>
+              <div className="flex items-center justify-between gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${roleStyles[role]}`}>{crmRoleLabels[role]}</span><span className="text-xl font-bold text-white">{roleCounts[role] || 0}</span></div>
               <p className="mt-2 text-xs leading-5 text-slate-500">{roleDescriptions[role]}</p>
             </div>
           ))}
@@ -252,6 +376,47 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
       </section>
 
       {status && <div className={`rounded-xl border px-4 py-3 text-sm ${status.type === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>{status.text}</div>}
+
+      {context?.can_manage_users && (
+        <section className="rounded-2xl border border-slate-700/70 bg-slate-900/75 p-5 shadow-xl shadow-black/10">
+          <div className="flex items-center gap-2 text-white"><UserPlus className="text-emerald-400" size={21} /><h3 className="font-semibold">Create CRM user</h3></div>
+          <p className="mt-1 text-xs text-slate-500">Creates a confirmed Supabase Auth account, initializes the customer profile, and applies the selected CRM permissions.</p>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <label className="text-xs text-slate-400">First name<input value={createForm.firstName} onChange={event => setCreateForm(current => ({ ...current, firstName: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500" /></label>
+            <label className="text-xs text-slate-400">Last name<input value={createForm.lastName} onChange={event => setCreateForm(current => ({ ...current, lastName: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500" /></label>
+            <label className="text-xs text-slate-400">Email<input type="email" value={createForm.email} onChange={event => setCreateForm(current => ({ ...current, email: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500" /></label>
+            <label className="text-xs text-slate-400">Temporary password<input type="password" minLength={8} value={createForm.password} onChange={event => setCreateForm(current => ({ ...current, password: event.target.value }))} placeholder="At least 8 characters" className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500" /></label>
+            <label className="text-xs text-slate-400">Role
+              <select value={createForm.role} onChange={event => changeCreateRole(event.target.value as CRMRole)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
+                {crmRoles.map(role => <option key={role} value={role}>{crmRoleLabels[role]}</option>)}
+              </select>
+            </label>
+            {createForm.role !== 'admin' && (
+              <label className="text-xs text-slate-400">Reports to
+                <select value={createForm.parentId} onChange={event => setCreateForm(current => ({ ...current, parentId: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
+                  {createForm.role === 'client' && <option value="">Unassigned client</option>}
+                  {createForm.role !== 'client' && <option value="">Select reporting manager</option>}
+                  {createParentCandidates.map(user => <option key={user.id} value={user.id}>{displayName(user)} — {crmRoleLabels[user.crm_role]}</option>)}
+                </select>
+              </label>
+            )}
+          </div>
+          <div className="mt-5">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Permissions</div>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {crmPermissionOptions.map(permission => (
+                <label key={permission.key} className={`flex items-start gap-3 rounded-xl border p-3 ${createPermissions[permission.key] ? 'border-purple-500/35 bg-purple-500/[0.08]' : 'border-slate-700 bg-slate-950/30'} ${createForm.role === 'admin' ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                  <input type="checkbox" checked={createPermissions[permission.key]} disabled={createForm.role === 'admin'} onChange={event => setCreatePermissions(current => ({ ...current, [permission.key]: event.target.checked }))} className="mt-0.5" />
+                  <span><span className="block text-sm font-medium text-white">{permission.label}</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">{permission.description}</span></span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <button type="button" onClick={() => void createUser()} disabled={creating || !reason.trim()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            {creating ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}Create user
+          </button>
+        </section>
+      )}
 
       <div className={`grid gap-5 ${context?.can_manage_hierarchy ? '2xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}>
         <section className="overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/75 shadow-xl shadow-black/10">
@@ -279,12 +444,12 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                   <div className="truncate text-xs text-slate-500">{selectedUser.email}</div>
                 </div>
                 <label className="block text-xs text-slate-400">CRM role
-                  <select value={selectedRole} onChange={event => setSelectedRole(event.target.value as CRMRole)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
-                    {roles.map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}
+                  <select value={selectedRole} onChange={event => changeSelectedRole(event.target.value as CRMRole)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
+                    {crmRoles.map(role => <option key={role} value={role}>{crmRoleLabels[role]}</option>)}
                   </select>
                 </label>
                 {selectedRole !== 'admin' && (
-                  <label className="block text-xs text-slate-400">Reports to {requiredParentRole[selectedRole] ? `(${roleLabels[requiredParentRole[selectedRole] as CRMRole]})` : ''}
+                  <label className="block text-xs text-slate-400">Reports to {requiredParentRoles[selectedRole] ? `(${requiredParentRoles[selectedRole]?.map(role => crmRoleLabels[role]).join(' or ')})` : ''}
                     <select value={selectedParentId} onChange={event => setSelectedParentId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
                       {selectedRole === 'client' && <option value="">Unassigned client</option>}
                       {selectedRole !== 'client' && <option value="">Select reporting manager</option>}
@@ -293,6 +458,17 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                   </label>
                 )}
                 <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.07] p-3 text-xs leading-5 text-purple-200/80">{roleDescriptions[selectedRole]}. Parallel branches remain isolated.</div>
+                <div>
+                  <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Permissions</div>
+                  <div className="space-y-2">
+                    {crmPermissionOptions.map(permission => (
+                      <label key={permission.key} className={`flex items-start gap-3 rounded-xl border p-3 ${selectedPermissions[permission.key] ? 'border-purple-500/35 bg-purple-500/[0.08]' : 'border-slate-700 bg-slate-950/30'} ${selectedRole === 'admin' ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}>
+                        <input type="checkbox" checked={selectedPermissions[permission.key]} disabled={selectedRole === 'admin'} onChange={event => setSelectedPermissions(current => ({ ...current, [permission.key]: event.target.checked }))} className="mt-0.5" />
+                        <span><span className="block text-sm font-medium text-white">{permission.label}</span><span className="mt-0.5 block text-xs leading-5 text-slate-500">{permission.description}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
                 <button type="button" onClick={() => void saveHierarchy()} disabled={saving || !reason.trim() || (selectedRole !== 'admin' && selectedRole !== 'client' && !selectedParentId)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-40">
                   {saving ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}Save hierarchy assignment
                 </button>

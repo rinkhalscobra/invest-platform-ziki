@@ -54,6 +54,7 @@ export const useWalletBreakdown = (
       .from('market_data')
       .select('price')
       .eq('symbol', symbol)
+      .eq('data_provider', 'twelve_data')
       .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle();
