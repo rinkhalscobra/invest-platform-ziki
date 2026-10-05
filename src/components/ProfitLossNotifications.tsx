@@ -77,23 +77,27 @@ const ProfitLossNotifications: React.FC<ProfitLossNotificationsProps> = ({ userI
 
     void fetchMissedNotifications();
     const poller = window.setInterval(() => void fetchMissedNotifications(), 8000);
-    const channel = supabase
-      .channel(`profit-loss-notifications:${userId}:${crypto.randomUUID()}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
-        payload => {
-          const notification = payload.new as ProfitLossNotification;
-          if (notification.created_at > cursor.current) cursor.current = notification.created_at;
-          show(notification);
-        }
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    const subscribeTimeout = window.setTimeout(() => {
+      channel = supabase
+        .channel(`profit-loss-notifications:${userId}:${crypto.randomUUID()}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
+          payload => {
+            const notification = payload.new as ProfitLossNotification;
+            if (notification.created_at > cursor.current) cursor.current = notification.created_at;
+            show(notification);
+          }
+        )
+        .subscribe();
+    }, 0);
 
     return () => {
       active = false;
       window.clearInterval(poller);
-      void supabase.removeChannel(channel);
+      window.clearTimeout(subscribeTimeout);
+      if (channel) void supabase.removeChannel(channel);
       activeTimers.forEach(timer => window.clearTimeout(timer));
       activeTimers.clear();
     };

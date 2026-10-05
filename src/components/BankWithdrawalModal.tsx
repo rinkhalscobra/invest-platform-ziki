@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, ArrowUpRight, AlertTriangle, CheckCircle, Copy, ExternalLink, Building, User, Landmark } from 'lucide-react';
+import { X, CreditCard, ArrowUpRight, AlertTriangle, CheckCircle, Copy, ExternalLink, Building, User, Landmark, Bitcoin } from 'lucide-react';
 
 interface BankWithdrawalModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelectCrypto: () => void;
   usdtBalance: number;
   onWithdraw: (amount: number, bankDetails: {
     bankName: string;
@@ -16,6 +17,7 @@ interface BankWithdrawalModalProps {
 const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
   isOpen,
   onClose,
+  onSelectCrypto,
   usdtBalance,
   onWithdraw
 }) => {
@@ -177,6 +179,29 @@ const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
         {/* Bank Withdrawal Form */}
         {step === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <p className="mb-2 text-xs sm:text-sm text-slate-400">Withdrawal method</p>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-900/30 p-1.5 border border-slate-700/30">
+                <button
+                  type="button"
+                  aria-pressed="true"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 px-3 py-2.5 text-sm font-medium text-white shadow-lg shadow-blue-500/20"
+                >
+                  <Landmark size={16} />
+                  Bank transfer
+                </button>
+                <button
+                  type="button"
+                  aria-pressed="false"
+                  onClick={onSelectCrypto}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-slate-600/30 bg-slate-700/50 px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-600/60 hover:text-white"
+                >
+                  <Bitcoin size={16} className="text-orange-400" />
+                  Crypto transfer
+                </button>
+              </div>
+            </div>
+
             <div>
               <div className="flex justify-between items-center mb-1 sm:mb-2">
                 <label className="text-xs sm:text-sm text-slate-400">Amount (USDT)</label>

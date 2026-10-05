@@ -8,7 +8,7 @@ interface CryptoWithdrawalModalProps {
   btcBalance: number;
   currentBtcPrice: number;
   initialCurrency?: 'USDT' | 'BTC';
-  onWithdraw: (currency: 'USDT' | 'BTC', amount: number, address: string, network: string) => Promise<boolean>;
+  onWithdraw: (currency: 'USDT' | 'BTC', amount: number, address: string, network: string) => Promise<string | null>;
 }
 
 const CryptoWithdrawalModal: React.FC<CryptoWithdrawalModalProps> = ({
@@ -119,8 +119,14 @@ const CryptoWithdrawalModal: React.FC<CryptoWithdrawalModalProps> = ({
       setError(`Insufficient ${currency} balance`);
       return;
     }
+
+    const minimumAmount = currency === 'USDT' ? 10 : 0.001;
+    if (parsedAmount < minimumAmount) {
+      setError(`Minimum withdrawal is ${minimumAmount} ${currency}`);
+      return;
+    }
     
-    if (!address) {
+    if (address.trim().length < 10) {
       setError('Please enter a valid wallet address');
       return;
     }
@@ -136,13 +142,12 @@ const CryptoWithdrawalModal: React.FC<CryptoWithdrawalModalProps> = ({
     setError(null);
     
     try {
-      const success = await onWithdraw(currency, parseFloat(amount), address, network);
+      const createdTransactionId = await onWithdraw(currency, parseFloat(amount), address.trim(), network);
       
-      if (success) {
-        setSuccess(`Withdrawal of ${amount} ${currency} initiated successfully`);
+      if (createdTransactionId) {
+        setSuccess(`Withdrawal of ${amount} ${currency} submitted for review`);
         setStep('success');
-        // Generate a fake transaction ID
-        setTransactionId(`tx_${Math.random().toString(36).substring(2, 15)}`);
+        setTransactionId(createdTransactionId);
       } else {
         throw new Error('Withdrawal failed. Please try again.');
       }
@@ -417,7 +422,7 @@ const CryptoWithdrawalModal: React.FC<CryptoWithdrawalModalProps> = ({
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-white mb-2 sm:mb-3">Withdrawal Initiated</h3>
               <p className="text-slate-300 text-sm sm:text-base mb-4 sm:mb-6">
-                Your withdrawal request has been submitted and is being processed. This may take 10-30 minutes to complete.
+                Your crypto withdrawal request has been submitted and is pending review. Processing begins after approval.
               </p>
             </div>
 
@@ -449,7 +454,7 @@ const CryptoWithdrawalModal: React.FC<CryptoWithdrawalModalProps> = ({
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-slate-400 mr-2">Status</span>
-                  <span className="text-amber-400 text-right">Processing</span>
+                  <span className="text-amber-400 text-right">Pending</span>
                 </div>
               </div>
             </div>

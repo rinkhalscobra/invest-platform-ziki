@@ -210,6 +210,11 @@ const WalletPage: React.FC<WalletPageProps> = ({
     setShowCryptoWithdrawalModal(true);
   };
 
+  const switchBankWithdrawalToCrypto = () => {
+    setShowBankWithdrawalModal(false);
+    handleCryptoWithdrawalClick('USDT');
+  };
+
   // Handle withdrawal submission
   const handleBankWithdrawalSubmit = async (amount: number, bankDetails: {
     bankName: string;
@@ -260,7 +265,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   };
 
   // Handle crypto withdrawal
-  const handleCryptoWithdrawal = async (currency: 'USDT' | 'BTC', amount: number, address: string, network: string): Promise<boolean> => {
+  const handleCryptoWithdrawal = async (currency: 'USDT' | 'BTC', amount: number, address: string, network: string): Promise<string | null> => {
     try {
       // Check available balance for withdrawal
       const withdrawalValueUSD = currency === 'USDT' ? amount : amount * actualBtcPrice;
@@ -273,7 +278,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { error: transactionError } = await supabase
+      const { data: transaction, error: transactionError } = await supabase
         .from('transactions')
         .insert([{
           user_id: user.id,
@@ -289,7 +294,9 @@ const WalletPage: React.FC<WalletPageProps> = ({
             withdrawal_type: 'crypto',
             created_at: new Date().toISOString()
           }
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (transactionError) {
         throw new Error(`Failed to create withdrawal transaction: ${transactionError.message}`);
@@ -299,12 +306,11 @@ const WalletPage: React.FC<WalletPageProps> = ({
       setMessage({ type: 'success', text: 'Crypto withdrawal initiated successfully' });
       
       // Close modal after successful withdrawal
-      setShowCryptoWithdrawalModal(false);
-      return true;
+      return transaction.id;
     } catch (error) {
       console.error('Error processing crypto withdrawal:', error);
       setMessage({ type: 'error', text: 'Withdrawal failed. Please try again.' });
-      return false;
+      return null;
     }
   };
 
@@ -604,6 +610,14 @@ const WalletPage: React.FC<WalletPageProps> = ({
                 >
                   <Landmark size={16} />
                   Bank Withdrawal
+                </button>
+
+                <button
+                  onClick={() => handleCryptoWithdrawalClick('USDT')}
+                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
+                >
+                  <Bitcoin size={17} />
+                  Crypto Withdrawal
                 </button>
                 
                 <button
@@ -1182,6 +1196,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
       <BankWithdrawalModal 
         isOpen={showBankWithdrawalModal}
         onClose={() => setShowBankWithdrawalModal(false)}
+        onSelectCrypto={switchBankWithdrawalToCrypto}
         usdtBalance={walletBreakdownData?.availableBalance || 0}
         onWithdraw={handleBankWithdrawalSubmit} 
       />

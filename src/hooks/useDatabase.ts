@@ -569,22 +569,28 @@ export const useDatabase = () => {
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel(`account-ledger:${user.id}:${crypto.randomUUID()}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'balances', filter: `user_id=eq.${user.id}` },
-        () => void fetchBalances()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
-        () => void fetchTransactions()
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    // React Strict Mode immediately mounts, cleans up and remounts effects in
+    // development. Defer socket creation so the temporary mount never joins.
+    const subscribeTimeout = window.setTimeout(() => {
+      channel = supabase
+        .channel(`account-ledger:${user.id}:${crypto.randomUUID()}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'balances', filter: `user_id=eq.${user.id}` },
+          () => void fetchBalances()
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
+          () => void fetchTransactions()
+        )
+        .subscribe();
+    }, 0);
 
     return () => {
-      void supabase.removeChannel(channel);
+      window.clearTimeout(subscribeTimeout);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [user, fetchBalances, fetchTransactions]);
 
