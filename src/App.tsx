@@ -76,6 +76,12 @@ export interface Transaction {
   status: 'completed' | 'pending' | 'failed';
   timestamp: string;
   created_at?: string;
+  withdrawal_details?: {
+    currency?: 'USDT' | 'BTC';
+    withdrawal_type?: 'bank' | 'crypto';
+    reference?: string;
+    [key: string]: unknown;
+  } | null;
 }
 
 // User status tiers based on portfolio value in USD

@@ -309,6 +309,105 @@ const CardPaymentSection: React.FC<{
   </section>
 );
 
+const WithdrawalReviewSection: React.FC<{
+  rows: JsonRow[];
+  saving: string | null;
+  reasonReady: boolean;
+  onReview: (row: JsonRow, decision: 'approve' | 'reject') => void;
+}> = ({ rows, saving, reasonReady, onReview }) => (
+  <section className={`${panelClass} overflow-hidden`}>
+    <div className="flex items-center justify-between border-b border-slate-700/70 px-4 py-3">
+      <div>
+        <h3 className="font-semibold text-white">Withdrawal requests</h3>
+        <p className="mt-0.5 text-xs text-slate-500">Funds are reserved when submitted. Approval settles them once; rejection returns them once.</p>
+      </div>
+      <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-400">{rows.length}</span>
+    </div>
+    {rows.length === 0 ? (
+      <div className="px-4 py-8 text-center text-sm text-slate-500">No withdrawal requests</div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1050px] text-left text-sm">
+          <thead className="bg-slate-950/40 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Created</th>
+              <th className="px-4 py-3">Reference</th>
+              <th className="px-4 py-3">Method</th>
+              <th className="px-4 py-3">Destination</th>
+              <th className="px-4 py-3">Requested</th>
+              <th className="px-4 py-3">Net amount</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Decision</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map(row => {
+              const id = asText(row.id);
+              const details = row.withdrawal_details && typeof row.withdrawal_details === 'object'
+                ? row.withdrawal_details as JsonRow
+                : {};
+              const method = asText(details.withdrawal_type || 'legacy').toLowerCase();
+              const currency = asText(details.currency || 'USDT').toUpperCase();
+              const amount = Math.abs(asNumber(row.amount));
+              const netAmount = details.net_amount === undefined ? amount : asNumber(details.net_amount);
+              const rawStatus = asText(row.status).toLowerCase();
+              const displayStatus = rawStatus === 'completed' ? 'APPROVED' : rawStatus === 'failed' ? 'REJECTED' : 'PENDING';
+              const pending = rawStatus === 'pending';
+              const approving = saving === `withdrawal-review-${id}-approve`;
+              const rejecting = saving === `withdrawal-review-${id}-reject`;
+              const account = asText(details.account_number);
+              const destination = method === 'crypto'
+                ? `${asText(details.network)} · ${asText(details.recipient_address)}`
+                : `${asText(details.bank_name) || 'Bank'} · ****${account.slice(-4)}`;
+              return (
+                <tr key={id} className="text-slate-300 hover:bg-white/[0.02]">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">{dateTime(row.created_at)}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{asText(details.reference) || id.slice(0, 8)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 capitalize">{method}</td>
+                  <td className="max-w-[300px] truncate px-4 py-3 font-mono text-xs" title={destination}>{destination}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-white">{money(amount, currency === 'BTC' ? 8 : 2)} {currency}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{money(netAmount, currency === 'BTC' ? 8 : 2)} {currency}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                      displayStatus === 'APPROVED'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                        : displayStatus === 'REJECTED'
+                        ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                    }`}>{displayStatus}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {pending ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => onReview(row, 'reject')}
+                          disabled={saving !== null || !reasonReady}
+                          className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {rejecting ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject
+                        </button>
+                        <button
+                          onClick={() => onReview(row, 'approve')}
+                          disabled={saving !== null || !reasonReady}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {approving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Approve
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-500">Reviewed {dateTime(row.reviewed_at)}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+);
+
 const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -516,6 +615,30 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
     }, decision === 'approve'
       ? `Card deposit ${reference} approved and ${money(amount)} USDT credited`
       : `Card deposit ${reference} rejected`);
+  };
+
+  const reviewWithdrawal = (row: JsonRow, decision: 'approve' | 'reject') => {
+    if (!selectedUserId) return;
+    const details = row.withdrawal_details && typeof row.withdrawal_details === 'object'
+      ? row.withdrawal_details as JsonRow
+      : {};
+    const currency = asText(details.currency || 'USDT').toUpperCase();
+    const amount = Math.abs(asNumber(row.amount));
+    const actionLabel = decision === 'approve' ? 'Approve and settle' : 'Reject and refund';
+    if (!window.confirm(`${actionLabel} ${money(amount, currency === 'BTC' ? 8 : 2)} ${currency}?`)) return;
+
+    const rowId = asText(row.id);
+    void runMutation(`withdrawal-review-${rowId}-${decision}`, async () => {
+      const { error } = await supabase.rpc('admin_review_withdrawal', {
+        p_target_user_id: selectedUserId,
+        p_transaction_id: rowId,
+        p_decision: decision,
+        p_reason: reason
+      });
+      return { error };
+    }, decision === 'approve'
+      ? `Withdrawal approved: ${money(amount, currency === 'BTC' ? 8 : 2)} ${currency}`
+      : `Withdrawal rejected and reserved funds returned: ${money(amount, currency === 'BTC' ? 8 : 2)} ${currency}`);
   };
 
   const creditProfit = () => runMutation('profit', async () => {
@@ -981,7 +1104,13 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
                       </div>
                     </section>
                     {workspace.bank_details?.id && managedSection('Bank details', 'client_bank_details', [workspace.bank_details], false)}
-                    {managedSection('Wallet transactions', 'transactions', workspace.transactions)}
+                    <WithdrawalReviewSection
+                      rows={(workspace.transactions || []).filter(item => item.type === 'withdrawal')}
+                      saving={saving}
+                      reasonReady={Boolean(reason.trim())}
+                      onReview={reviewWithdrawal}
+                    />
+                    {managedSection('Other wallet transactions', 'transactions', (workspace.transactions || []).filter(item => item.type !== 'withdrawal'))}
                   </div>
                 )}
 

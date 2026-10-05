@@ -20,7 +20,6 @@ import {
   Layers,
   CreditCard as Card,
   ArrowRight,
-  Landmark,
   BarChart3
 } from 'lucide-react';
 import NowPaymentsDeposit from './NowPaymentsDeposit';
@@ -221,46 +220,31 @@ const WalletPage: React.FC<WalletPageProps> = ({
     accountNumber: string;
     routingNumber: string;
     beneficiaryName: string;
-  }): Promise<boolean> => {
+  }): Promise<string | null> => {
     try {
-      // Create transaction with withdrawal details using direct Supabase insert
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data, error: withdrawalError } = await supabase.rpc('create_pending_withdrawal', {
+        p_method: 'bank',
+        p_currency: 'USDT',
+        p_amount: amount,
+        p_details: {
+          bank_name: bankDetails.bankName,
+          account_number: bankDetails.accountNumber,
+          routing_number: bankDetails.routingNumber,
+          beneficiary_name: bankDetails.beneficiaryName
+        }
+      });
 
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert([{
-          user_id: user.id,
-          type: 'withdrawal',
-          amount: -amount,
-          description: `Bank withdrawal of ${amount} USDT to ${bankDetails.bankName} (Acc: ••••${bankDetails.accountNumber.slice(-4)})`,
-          status: 'pending',
-          withdrawal_details: {
-            currency: 'USDT',
-            amount: amount,
-            bank_name: bankDetails.bankName,
-            account_number: bankDetails.accountNumber,
-            routing_number: bankDetails.routingNumber,
-            beneficiary_name: bankDetails.beneficiaryName,
-            withdrawal_type: 'bank',
-            created_at: new Date().toISOString()
-          }
-        }]);
-
-      if (transactionError) {
-        throw new Error(`Failed to create withdrawal transaction: ${transactionError.message}`);
-      }
+      if (withdrawalError) throw new Error(withdrawalError.message);
+      const result = data as { transaction_id?: string } | null;
+      if (!result?.transaction_id) throw new Error('Supabase did not return a withdrawal transaction ID');
       
-      // Set success message
-      setMessage({ type: 'success', text: 'Bank withdrawal initiated successfully' });
-      
-      // Close modal after successful withdrawal
-      setShowBankWithdrawalModal(false);
-      return true;
+      setMessage({ type: 'warning', text: 'Bank withdrawal submitted and funds reserved pending CRM review' });
+      await fetchTransactions();
+      return result.transaction_id;
     } catch (error) {
       console.error('Error processing bank withdrawal:', error);
-      setMessage({ type: 'error', text: 'Withdrawal failed. Please try again.' });
-      return false;
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Withdrawal failed. Please try again.' });
+      return null;
     }
   };
 
@@ -274,42 +258,26 @@ const WalletPage: React.FC<WalletPageProps> = ({
         throw new Error(`Insufficient available balance. Required: ${withdrawalValueUSD.toFixed(2)} USD, Available: ${walletBreakdownData.availableBalance.toFixed(2)} USD`);
       }
       
-      // Create transaction with withdrawal details using direct Supabase insert
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      const { data, error: withdrawalError } = await supabase.rpc('create_pending_withdrawal', {
+        p_method: 'crypto',
+        p_currency: currency,
+        p_amount: amount,
+        p_details: {
+          recipient_address: address,
+          network
+        }
+      });
 
-      const { data: transaction, error: transactionError } = await supabase
-        .from('transactions')
-        .insert([{
-          user_id: user.id,
-          type: 'withdrawal',
-          amount: -amount,
-          description: `${currency} withdrawal of ${amount} ${currency} to ${address.substring(0, 8)}...${address.substring(address.length - 8)}`,
-          status: 'pending',
-          withdrawal_details: {
-            currency: currency,
-            amount: amount,
-            recipient_address: address,
-            network: network,
-            withdrawal_type: 'crypto',
-            created_at: new Date().toISOString()
-          }
-        }])
-        .select('id')
-        .single();
-
-      if (transactionError) {
-        throw new Error(`Failed to create withdrawal transaction: ${transactionError.message}`);
-      }
+      if (withdrawalError) throw new Error(withdrawalError.message);
+      const result = data as { transaction_id?: string } | null;
+      if (!result?.transaction_id) throw new Error('Supabase did not return a withdrawal transaction ID');
       
-      // Set success message
-      setMessage({ type: 'success', text: 'Crypto withdrawal initiated successfully' });
-      
-      // Close modal after successful withdrawal
-      return transaction.id;
+      setMessage({ type: 'warning', text: 'Crypto withdrawal submitted and funds reserved pending CRM review' });
+      await fetchTransactions();
+      return result.transaction_id;
     } catch (error) {
       console.error('Error processing crypto withdrawal:', error);
-      setMessage({ type: 'error', text: 'Withdrawal failed. Please try again.' });
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Withdrawal failed. Please try again.' });
       return null;
     }
   };
@@ -363,6 +331,17 @@ const WalletPage: React.FC<WalletPageProps> = ({
     type === 'robot_profit' ||
     type === 'staking_profit'
   );
+
+  const formatTransactionAmount = (transaction: Transaction) => {
+    const amount = Number(transaction.amount) || 0;
+    if (transaction.type === 'withdrawal') {
+      const currency = transaction.withdrawal_details?.currency || 'USDT';
+      return currency === 'BTC'
+        ? `-${Math.abs(amount).toFixed(8)} BTC`
+        : formatCurrency(-Math.abs(amount));
+    }
+    return `${isPositiveTransaction(transaction.type) ? '+' : ''}${formatCurrency(amount)}`;
+  };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -590,45 +569,6 @@ const WalletPage: React.FC<WalletPageProps> = ({
                 </div>
               </div>
             )}
-
-            {/* Quick Actions */}
-            <div className="app-surface-primary rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-6">Quick Actions</h3>
-              
-              <div className="space-y-3">
-                <button
-                  onClick={() => setActiveTab('deposit')}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
-                >
-                  <ArrowDownLeft size={18} />
-                  Deposit
-                </button>
-                
-                <button
-                  onClick={() => setShowBankWithdrawalModal(true)}
-                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-red-500/25"
-                >
-                  <Landmark size={16} />
-                  Bank Withdrawal
-                </button>
-
-                <button
-                  onClick={() => handleCryptoWithdrawalClick('USDT')}
-                  className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25"
-                >
-                  <Bitcoin size={17} />
-                  Crypto Withdrawal
-                </button>
-                
-                <button
-                  onClick={() => setTradingMode && setTradingMode('staking')}
-                  className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
-                >
-                  <Layers size={18} />
-                  Staking
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -695,8 +635,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
                           ? 'text-red-400'
                           : 'text-white'
                       }`}>
-                        {isPositiveTransaction(transaction.type) ? '+' : ''}
-                        {formatCurrency(parseFloat(transaction.amount.toString()))}
+                        {formatTransactionAmount(transaction)}
                       </div>
                       <div className="flex items-center gap-1">
                         {getStatusIcon(transaction.status)}
@@ -755,8 +694,8 @@ const WalletPage: React.FC<WalletPageProps> = ({
         )}
 
         {activeTab === 'deposit' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 gap-8">
+            <div>
               <div className="app-surface-primary rounded-2xl p-8">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-lg shadow-green-500/25">
@@ -968,37 +907,6 @@ const WalletPage: React.FC<WalletPageProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* Info Section */}
-            <div className="app-surface-primary rounded-2xl p-6">
-              <div className="flex items-start gap-3">
-                <Info size={20} className="text-blue-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">About Deposits</h3>
-                  <p className="text-slate-300 text-sm mb-4">
-                    Deposits are processed securely. Card requests remain pending until reviewed, and bank-transfer beneficiary details must match your registered account name.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="app-surface-muted rounded-lg p-3">
-                      <div className="text-slate-400 mb-1">Processing Time</div>
-                      <ul className="text-slate-300 space-y-1">
-                        <li>• Crypto: Instant (after confirmations)</li>
-                        <li>• Card: Pending review</li>
-                        <li>• Bank Transfer: 1-3 business days</li>
-                      </ul>
-                    </div>
-                    <div className="app-surface-muted rounded-lg p-3">
-                      <div className="text-slate-400 mb-1">Fees</div>
-                      <ul className="text-slate-300 space-y-1">
-                        <li>• Crypto: Network fees apply</li>
-                        <li>• Card: Shown before approval</li>
-                        <li>• Bank Transfer: No platform fees</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -1033,8 +941,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
                         ? 'text-red-400'
                         : 'text-white'
                     }`}>
-                      {isPositiveTransaction(transaction.type) ? '+' : ''}
-                      {formatCurrency(parseFloat(transaction.amount.toString()))}
+                      {formatTransactionAmount(transaction)}
                     </div>
                     <div className="flex items-center gap-1">
                       {getStatusIcon(transaction.status)}
@@ -1197,7 +1104,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
         isOpen={showBankWithdrawalModal}
         onClose={() => setShowBankWithdrawalModal(false)}
         onSelectCrypto={switchBankWithdrawalToCrypto}
-        usdtBalance={walletBreakdownData?.availableBalance || 0}
+        usdtBalance={Math.min(usdtBalance, walletBreakdownData?.availableBalance ?? usdtBalance)}
         onWithdraw={handleBankWithdrawalSubmit} 
       />
 
@@ -1205,7 +1112,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
       <CryptoWithdrawalModal
         isOpen={showCryptoWithdrawalModal}
         onClose={() => setShowCryptoWithdrawalModal(false)}
-        usdtBalance={walletBreakdownData?.availableBalance || 0}
+        usdtBalance={Math.min(usdtBalance, walletBreakdownData?.availableBalance ?? usdtBalance)}
         btcBalance={btcBalance}
         currentBtcPrice={actualBtcPrice}
         initialCurrency={selectedCryptoForWithdrawal}

@@ -11,7 +11,7 @@ interface BankWithdrawalModalProps {
     accountNumber: string;
     routingNumber: string;
     beneficiaryName: string;
-  }) => Promise<boolean>;
+  }) => Promise<string | null>;
 }
 
 const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
@@ -83,6 +83,11 @@ const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
       setError('Insufficient USDT balance');
       return;
     }
+
+    if (parsedAmount < 100) {
+      setError('Minimum bank withdrawal is 100 USDT');
+      return;
+    }
     
     if (!bankName || !accountNumber || !routingNumber || !beneficiaryName) {
       setError('Please fill in all bank details');
@@ -100,18 +105,17 @@ const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
     setError(null);
     
     try {
-      const success = await onWithdraw(parseFloat(amount), {
+      const createdTransactionId = await onWithdraw(parseFloat(amount), {
         bankName,
         accountNumber,
         routingNumber,
         beneficiaryName
       });
       
-      if (success) {
-        setSuccess(`Bank withdrawal of ${amount} USDT initiated successfully`);
+      if (createdTransactionId) {
+        setSuccess(`Bank withdrawal of ${amount} USDT submitted for review`);
         setStep('success');
-        // Generate a fake transaction ID
-        setTransactionId(`tx_${Math.random().toString(36).substring(2, 15)}`);
+        setTransactionId(createdTransactionId);
       } else {
         throw new Error('Withdrawal failed. Please try again.');
       }
@@ -411,7 +415,7 @@ const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
               </div>
               <h3 className="text-lg sm:text-xl font-semibold text-white mb-2 sm:mb-3">Withdrawal Initiated</h3>
               <p className="text-slate-300 text-sm sm:text-base mb-4 sm:mb-6">
-                Your bank withdrawal request has been submitted and is being processed. This may take 1-3 business days to complete.
+                Your bank withdrawal request has been submitted and is pending review. Processing begins after approval.
               </p>
             </div>
 
@@ -443,7 +447,7 @@ const BankWithdrawalModal: React.FC<BankWithdrawalModalProps> = ({
                 </div>
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-slate-400 mr-2">Status</span>
-                  <span className="text-amber-400 text-right">Processing</span>
+                  <span className="text-amber-400 text-right">Pending</span>
                 </div>
               </div>
             </div>
