@@ -32,7 +32,7 @@ export default function BTCDeposit({ userId, onSuccess }: BTCDepositProps) {
     fetchPendingDeposits();
 
     const channel = supabase
-      .channel('crypto-deposits')
+      .channel(`crypto-deposits:${userId}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         {

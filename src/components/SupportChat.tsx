@@ -423,7 +423,7 @@ const SupportChat: React.FC<SupportChatProps> = ({ user }) => {
 
     // Subscribe to new conversations
     const conversationsChannel = supabase
-      .channel('user_conversations')
+      .channel(`user_conversations:${authUser.id}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         {
@@ -444,7 +444,7 @@ const SupportChat: React.FC<SupportChatProps> = ({ user }) => {
     
     if (selectedConversationId) {
       messagesChannel = supabase
-        .channel('conversation_messages')
+        .channel(`conversation_messages:${selectedConversationId}:${crypto.randomUUID()}`)
         .on(
           'postgres_changes',
           {

@@ -78,7 +78,7 @@ const ProfitLossNotifications: React.FC<ProfitLossNotificationsProps> = ({ userI
     void fetchMissedNotifications();
     const poller = window.setInterval(() => void fetchMissedNotifications(), 8000);
     const channel = supabase
-      .channel(`profit-loss-notifications:${userId}`)
+      .channel(`profit-loss-notifications:${userId}:${crypto.randomUUID()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },

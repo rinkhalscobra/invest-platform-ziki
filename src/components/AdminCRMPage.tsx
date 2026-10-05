@@ -213,6 +213,102 @@ const RecordSection: React.FC<{
   );
 };
 
+const CardPaymentSection: React.FC<{
+  rows: JsonRow[];
+  saving: string | null;
+  reasonReady: boolean;
+  onReview: (row: JsonRow, decision: 'approve' | 'reject') => void;
+}> = ({ rows, saving, reasonReady, onReview }) => (
+  <section className={`${panelClass} overflow-hidden`}>
+    <div className="flex items-center justify-between border-b border-slate-700/70 px-4 py-3">
+      <div>
+        <h3 className="font-semibold text-white">Card deposit requests</h3>
+        <p className="mt-0.5 text-xs text-slate-500">Approval credits the customer balance exactly once. Rejection marks the linked transaction failed.</p>
+      </div>
+      <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-400">{rows.length}</span>
+    </div>
+    {rows.length === 0 ? (
+      <div className="px-4 py-8 text-center text-sm text-slate-500">No card deposit requests</div>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1100px] text-left text-sm">
+          <thead className="bg-slate-950/40 text-xs uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Created</th>
+              <th className="px-4 py-3">Reference</th>
+              <th className="px-4 py-3">Card</th>
+              <th className="px-4 py-3">Customer</th>
+              <th className="px-4 py-3">Billing</th>
+              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Decision</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {rows.map(row => {
+              const id = asText(row.id);
+              const status = asText(row.status).toUpperCase();
+              const pending = ['PENDING', 'WAITING'].includes(status);
+              const rejecting = saving === `card-review-${id}-reject`;
+              const approving = saving === `card-review-${id}-approve`;
+              const amount = asNumber(row.amount) / 100;
+              const billing = row.billing_info && typeof row.billing_info === 'object' ? row.billing_info as JsonRow : {};
+              const billingLocation = [asText(billing.city), asText(billing.state), asText(billing.country)].filter(Boolean).join(', ');
+              return (
+                <tr key={id} className="text-slate-300 hover:bg-white/[0.02]">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">{dateTime(row.created_at)}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-300">{asText(row.reference_no)}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{asText(row.card_number_masked) || 'Masked card'}</td>
+                  <td className="max-w-[220px] px-4 py-3">
+                    <div className="truncate text-white">{asText(billing.cardholderName) || 'Cardholder'}</div>
+                    <div className="truncate text-xs text-slate-500">{asText(row.customer_email)}</div>
+                  </td>
+                  <td className="max-w-[260px] px-4 py-3" title={compactValue(billing)}>
+                    <div className="truncate">{asText(billing.address1) || 'No address'}</div>
+                    <div className="truncate text-xs text-slate-500">{billingLocation || asText(billing.phone)}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-white">{money(amount)} USDT</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                      status === 'APPROVED'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                        : ['DECLINED', 'REJECTED', 'FAILED'].includes(status)
+                        ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                    }`}>{status || 'PENDING'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {pending ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => onReview(row, 'reject')}
+                          disabled={saving !== null || !reasonReady}
+                          className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {rejecting ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />} Reject
+                        </button>
+                        <button
+                          onClick={() => onReview(row, 'approve')}
+                          disabled={saving !== null || !reasonReady}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {approving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Approve
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-500">Reviewed {dateTime(row.reviewed_at)}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </section>
+);
+
 const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -400,6 +496,27 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
     });
     return { error };
   }, 'Asset balance updated');
+
+  const reviewCardDeposit = (row: JsonRow, decision: 'approve' | 'reject') => {
+    if (!selectedUserId) return;
+    const amount = asNumber(row.amount) / 100;
+    const reference = asText(row.reference_no);
+    const actionLabel = decision === 'approve' ? 'approve and credit' : 'reject';
+    if (!window.confirm(`${actionLabel[0].toUpperCase()}${actionLabel.slice(1)} ${money(amount)} USDT for ${reference}?`)) return;
+
+    const rowId = asText(row.id);
+    void runMutation(`card-review-${rowId}-${decision}`, async () => {
+      const { error } = await supabase.rpc('admin_review_card_deposit', {
+        p_target_user_id: selectedUserId,
+        p_card_request_id: rowId,
+        p_decision: decision,
+        p_reason: reason
+      });
+      return { error };
+    }, decision === 'approve'
+      ? `Card deposit ${reference} approved and ${money(amount)} USDT credited`
+      : `Card deposit ${reference} rejected`);
+  };
 
   const creditProfit = () => runMutation('profit', async () => {
     const { error } = await supabase.rpc('admin_credit_robot_profit', {
@@ -954,7 +1071,12 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
                     {managedSection('Deposit addresses', 'crypto_deposit_addresses', workspace.deposit_addresses)}
                     {managedSection('On-chain deposits', 'crypto_deposits', workspace.deposits)}
                     {managedSection('Crypto payment requests', 'crypto_payment_requests', workspace.payment_requests)}
-                    {managedSection('Card / sandbox payments', 'sandbox_payment_transactions', workspace.sandbox_payments)}
+                    <CardPaymentSection
+                      rows={workspace.sandbox_payments || []}
+                      saving={saving}
+                      reasonReady={Boolean(reason.trim())}
+                      onReview={reviewCardDeposit}
+                    />
                   </div>
                 )}
 

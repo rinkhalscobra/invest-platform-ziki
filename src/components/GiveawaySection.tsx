@@ -67,7 +67,7 @@ export default function GiveawaySection() {
       if (!user) return;
 
       const ticketsChannel = supabase
-        .channel('giveaway-tickets-changes')
+        .channel(`giveaway-tickets-changes:${user.id}:${activeCampaign.id}:${crypto.randomUUID()}`)
         .on(
           'postgres_changes',
           {

@@ -7,6 +7,16 @@
     <meta name="google" content="notranslate">
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      html, body, #root { min-height: 100%; margin: 0; }
+      body { background: #07101f; color: #e2e8f0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      .app-booting { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+      .app-booting__content { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+      .app-booting__spinner { width: 34px; height: 34px; border: 3px solid rgba(96, 165, 250, .2); border-top-color: #60a5fa; border-radius: 999px; animation: app-spin .8s linear infinite; }
+      .app-booting__title { margin: 0; font-size: 18px; font-weight: 700; color: #fff; }
+      .app-booting__message { margin: 0; max-width: 420px; color: #94a3b8; font-size: 14px; line-height: 1.5; }
+      @keyframes app-spin { to { transform: rotate(360deg); } }
+    </style>
     <!-- Tawk.to Live Chat Integration -->
     <script type="text/javascript">
       var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
@@ -26,7 +36,27 @@
     <title>Point2Wealth</title>
   </head>
   <body translate="no" class="notranslate">
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-booting" role="status" aria-live="polite">
+        <div class="app-booting__content">
+          <div class="app-booting__spinner" aria-hidden="true"></div>
+          <p class="app-booting__title">Point2Wealth</p>
+          <p class="app-booting__message" data-boot-message>Loading your workspace…</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        function showStartupError() {
+          var message = document.querySelector('[data-boot-message]');
+          if (message) message.textContent = 'The application could not start. Refresh the page or clear the site cache and try again.';
+          var spinner = document.querySelector('.app-booting__spinner');
+          if (spinner) spinner.style.display = 'none';
+        }
+        window.addEventListener('error', showStartupError);
+        window.addEventListener('unhandledrejection', showStartupError);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

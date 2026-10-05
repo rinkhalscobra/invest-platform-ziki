@@ -24,6 +24,7 @@ import {
   BarChart3
 } from 'lucide-react';
 import NowPaymentsDeposit from './NowPaymentsDeposit';
+import CardDeposit from './CardDeposit';
 import BankWithdrawalModal from './BankWithdrawalModal';
 import CryptoWithdrawalModal from './CryptoWithdrawalModal';
 import { Transaction } from '../App';
@@ -72,7 +73,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { userStakes, calculateCurrentEarnings, cancelUserStake, transactions } = useDatabase();
+  const { userStakes, calculateCurrentEarnings, cancelUserStake, transactions, fetchTransactions } = useDatabase();
   const { marketData: contextMarketData, snapshotData, getSnapshotPriceBySymbol } = useMarketData();
   const { getPriceBySymbol: getBybitPrice } = useBybitData();
 
@@ -89,7 +90,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
   };
   // State for wallet operations
   const [activeTab, setActiveTab] = useState('overview');
-  const [depositMethod, setDepositMethod] = useState<'bank_transfer' | 'nowpayments' | 'btc_direct'>('bank_transfer');
+  const [depositMethod, setDepositMethod] = useState<'bank_transfer' | 'nowpayments' | 'btc_direct' | 'card'>('bank_transfer');
   const [depositAmount, setDepositAmount] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState<'USDT' | 'BTC'>('USDT');
   const [showBalance, setShowBalance] = useState(true);
@@ -757,7 +758,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
                       <button
                         onClick={() => setSelectedCurrency('USDT')}
                         className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
-                          selectedCurrency === 'USDT' && depositMethod === 'bank_transfer'
+                          selectedCurrency === 'USDT'
                             ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-500/25 transform scale-105'
                             : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white border border-slate-600/30'
                         }`}
@@ -769,10 +770,11 @@ const WalletPage: React.FC<WalletPageProps> = ({
                       </button>
                       <button
                         onClick={() => setSelectedCurrency('BTC')}
+                        disabled={depositMethod === 'card'}
                         className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
-                          selectedCurrency === 'BTC' && depositMethod === 'bank_transfer'
+                          selectedCurrency === 'BTC'
                             ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25 transform scale-105'
-                            : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white border border-slate-600/30'
+                            : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white border border-slate-600/30 disabled:cursor-not-allowed disabled:opacity-40'
                         }`}
                       >
                         <Bitcoin size={18} className="text-orange-400" />
@@ -803,7 +805,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
                   {/* Deposit Method Selector */}
                   <div className="mb-6">
                     <label className="block text-slate-400 text-sm mb-3">Select Deposit Method</label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                       <button
                         onClick={() => setDepositMethod('btc_direct')}
                         className={`py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
@@ -825,6 +827,20 @@ const WalletPage: React.FC<WalletPageProps> = ({
                       >
                         <Card size={18} className={depositMethod === 'nowpayments' ? 'text-white' : 'text-slate-400'} />
                         Crypto
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDepositMethod('card');
+                          setSelectedCurrency('USDT');
+                        }}
+                        className={`py-3 px-4 rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
+                          depositMethod === 'card'
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 transform scale-105'
+                            : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50 hover:text-white border border-slate-600/30'
+                        }`}
+                      >
+                        <Card size={18} className={depositMethod === 'card' ? 'text-white' : 'text-blue-400'} />
+                        Card
                       </button>
                       <button
                         onClick={() => setDepositMethod('bank_transfer')}
@@ -869,6 +885,18 @@ const WalletPage: React.FC<WalletPageProps> = ({
                         <p>Loading user information...</p>
                       </div>
                     )
+                  ) : depositMethod === 'card' ? (
+                    <CardDeposit
+                      amount={depositAmount}
+                      currency={selectedCurrency}
+                      onPending={async ({ reference, amount, lastFour }) => {
+                        setMessage({
+                          type: 'warning',
+                          text: `Card deposit of ${amount.toFixed(2)} USDT ending in ${lastFour} is pending. Reference: ${reference}`,
+                        });
+                        await fetchTransactions();
+                      }}
+                    />
                   ) : (
                     <div className="space-y-6">
                       <div className="app-surface-muted rounded-xl p-6">
@@ -934,13 +962,14 @@ const WalletPage: React.FC<WalletPageProps> = ({
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-2">About Deposits</h3>
                   <p className="text-slate-300 text-sm mb-4">
-                    All deposits are processed securely. For bank transfers, please ensure the beneficiary name matches your registered account name to avoid delays.
+                    Deposits are processed securely. Card requests remain pending until reviewed, and bank-transfer beneficiary details must match your registered account name.
                   </p>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="app-surface-muted rounded-lg p-3">
                       <div className="text-slate-400 mb-1">Processing Time</div>
                       <ul className="text-slate-300 space-y-1">
                         <li>• Crypto: Instant (after confirmations)</li>
+                        <li>• Card: Pending review</li>
                         <li>• Bank Transfer: 1-3 business days</li>
                       </ul>
                     </div>
@@ -948,6 +977,7 @@ const WalletPage: React.FC<WalletPageProps> = ({
                       <div className="text-slate-400 mb-1">Fees</div>
                       <ul className="text-slate-300 space-y-1">
                         <li>• Crypto: Network fees apply</li>
+                        <li>• Card: Shown before approval</li>
                         <li>• Bank Transfer: No platform fees</li>
                       </ul>
                     </div>

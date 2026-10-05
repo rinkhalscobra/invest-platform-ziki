@@ -99,7 +99,7 @@ export default function GiveawayWinnerPopup({ forceShow = false }: GiveawayWinne
         checkForNewWin();
 
         channel = supabase
-          .channel('giveaway_winners_updates')
+          .channel(`giveaway_winners_updates:${crypto.randomUUID()}`)
           .on(
             'postgres_changes',
             {

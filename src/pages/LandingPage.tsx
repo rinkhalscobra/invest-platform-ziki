@@ -164,7 +164,6 @@ const LandingPage: React.FC = () => {
                   src="/images/landing-hero-canary-wharf.jpg"
                   alt="Contemporary financial workspace overlooking Canary Wharf at blue hour"
                   className="h-full w-full object-cover object-center"
-                  fetchPriority="high"
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#070b16]/35 via-transparent to-white/[0.03]" />
               </figure>

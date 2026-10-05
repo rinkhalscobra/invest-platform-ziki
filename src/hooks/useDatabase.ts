@@ -565,6 +565,29 @@ export const useDatabase = () => {
     fetchReferredUsers
   ]);
 
+  // Keep wallet balances and transaction statuses in sync when CRM reviews a deposit.
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`account-ledger:${user.id}:${crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'balances', filter: `user_id=eq.${user.id}` },
+        () => void fetchBalances()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
+        () => void fetchTransactions()
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, fetchBalances, fetchTransactions]);
+
   // Update balances
   const updateBalances = useCallback(async (updates: { usdt_balance?: number, btc_balance?: number }) => {
     if (!user) throw new Error('No user found');
