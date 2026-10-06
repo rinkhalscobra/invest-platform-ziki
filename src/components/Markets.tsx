@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Star, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Landmark, Gem, Building2, BarChart3 } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { TradingMode } from '../App';
 import { TOP_CRYPTO_PAIRS, CFD_INSTRUMENTS, getCfdInstrument } from '../constants/tradingPairs';
@@ -89,6 +89,13 @@ const Markets: React.FC<MarketsProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [cfdCategory, setCfdCategory] = useState<'forex' | 'commodity' | 'stock' | 'index'>('forex');
+  const CfdCategoryIcon = cfdCategory === 'forex'
+    ? Landmark
+    : cfdCategory === 'commodity'
+      ? Gem
+      : cfdCategory === 'stock'
+        ? Building2
+        : BarChart3;
   const [stockCategory, setStockCategory] = useState<'all' | 'technology' | 'fintech' | 'finance' | 'automotive' | 'energy-materials' | 'private'>('all');
   const { favorites, isFavorite, toggleFavorite, loading: favoritesLoading } = useFavorites();
 
@@ -380,11 +387,7 @@ const Markets: React.FC<MarketsProps> = ({
                 ? categoryActiveSurfaceClass || 'bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-emerald-500/25'
                 : categoryActiveSurfaceClass || 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white shadow-lg shadow-purple-500/25'
             }`}>
-              <span className="text-xl">
-                {cfdCategory === 'forex' ? '💱' :
-                 cfdCategory === 'commodity' ? '🥇' :
-                 cfdCategory === 'stock' ? '📈' : '📊'}
-              </span>
+              <CfdCategoryIcon size={18} className="text-blue-300" />
               <span className="text-sm md:text-base">
                 {cfdCategory === 'forex' ? t('cfd.forexPairs') :
                  cfdCategory === 'commodity' ? t('cfd.commodities') :

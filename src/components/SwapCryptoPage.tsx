@@ -985,16 +985,18 @@ const SwapCryptoPage: React.FC<SwapCryptoPageProps> = ({
     });
 
   return (
-    <div className="mx-auto w-full space-y-6 app-page-bg px-4 py-4 sm:space-y-8 sm:px-6 sm:py-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[1600px] space-y-6 app-page-bg px-4 py-4 sm:space-y-8 sm:px-6 sm:py-6 lg:px-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
       <div className="relative z-20 min-w-0 lg:w-2/3">
         {/* Swap Card */}
         <div className="mb-8 rounded-2xl app-surface-primary p-4 sm:p-6 lg:p-8">
           {/* Header */}
           <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent sm:text-2xl">
-              {t('swap.title')}
-            </h2>
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Asset conversion</div>
+              <h1 className="text-xl font-semibold text-white sm:text-2xl">{t('swap.title')}</h1>
+              <p className="mt-1 text-sm text-slate-500">Convert supported assets with a clear execution preview.</p>
+            </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 sm:gap-3 sm:text-sm">
               {lockedPrices ? (
                 <div className="flex w-fit items-center gap-2 rounded-lg app-action-soft px-3 py-1.5">

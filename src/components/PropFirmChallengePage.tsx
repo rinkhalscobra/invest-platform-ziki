@@ -599,26 +599,18 @@ const PropFirmChallengePage: React.FC<PropFirmChallengePageProps> = ({
 
   if (!selectedChallenge) {
     return (
-      <div className={`min-h-screen ${pageBackgroundClass} text-white relative overflow-hidden`}>
-        {/* Animated Background */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/12 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-fuchsia-500/12 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-        </div>
-
-        <div className="relative z-10 p-8">
+      <div className={`min-h-screen ${pageBackgroundClass} text-white`}>
+        <div className="mx-auto max-w-[1600px] p-4 md:p-8">
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="w-20 h-20 bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-purple-500/25">
-              <Target size={32} className="text-white" />
+          <div className="mb-10 border-b border-slate-800/80 pb-8">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Professional capital programs</div>
+            <div className="flex items-center gap-4">
+              <div className="app-icon-tile flex h-12 w-12 items-center justify-center rounded-lg"><Target size={24} className="text-white" /></div>
+              <div>
+                <h1 className="text-3xl font-semibold text-white md:text-4xl">{t('propFirm.title')}</h1>
+                <p className="mt-2 max-w-3xl text-base text-slate-400">{t('propFirm.subtitle')}</p>
+              </div>
             </div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-indigo-300 via-purple-300 to-fuchsia-300 bg-clip-text text-transparent mb-4">
-              {t('propFirm.title')}
-            </h1>
-            <p className="text-slate-400 text-xl max-w-3xl mx-auto">
-              {t('propFirm.subtitle')}
-            </p>
           </div>
 
           {/* Available Balance */}
@@ -638,7 +630,7 @@ const PropFirmChallengePage: React.FC<PropFirmChallengePageProps> = ({
               return (
                 <div
                   key={challenge.id}
-                  className={`${glassPanelClass} backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50 shadow-2xl transition-all duration-300 hover:transform hover:scale-105 ${
+                  className={`${glassPanelClass} rounded-2xl p-8 border border-slate-700/50 transition-all duration-200 ${
                     canAfford ? 'hover:border-slate-600/50 cursor-pointer' : 'opacity-60'
                   }`}
                   onClick={() => canAfford && handleSelectChallenge(challenge)}
@@ -815,28 +807,22 @@ const PropFirmChallengePage: React.FC<PropFirmChallengePageProps> = ({
 
   // Challenge Trading Interface
   return (
-    <div className={`min-h-screen ${pageBackgroundClass} text-white relative overflow-hidden pb-8`}>
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/12 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-fuchsia-500/12 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
-      <div className="relative z-10 p-8">
+    <div className={`min-h-screen ${pageBackgroundClass} text-white pb-8`}>
+      <div className="mx-auto max-w-[1600px] p-4 md:p-8">
         {/* Challenge Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8 flex flex-col gap-4 border-b border-slate-800/80 pb-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 bg-gradient-to-r ${selectedChallenge.color} rounded-xl flex items-center justify-center shadow-lg`}>
               <selectedChallenge.icon size={24} className="text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">{selectedChallenge.name}</h1>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Active evaluation</div>
+              <h1 className="text-3xl font-semibold text-white">{selectedChallenge.name}</h1>
               <p className="text-slate-400">{t('propFirm.challengeInProgress')}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {/* Trading Mode Toggle */}
             <div className={`flex ${glassSurfaceClass} rounded-xl p-1 border border-slate-600/30`}>
               <button

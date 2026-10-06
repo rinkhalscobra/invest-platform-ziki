@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Header from './components/Header';
+import ClientDashboardHeader from './components/ClientDashboardHeader';
 import { MarketDataProvider, useMarketData } from './contexts/MarketDataContext';
 import { BybitDataProvider, useBybitData } from './contexts/BybitDataContext';
 import CryptoHoldings from './components/CryptoHoldings';
@@ -953,8 +953,8 @@ const handleUpdatePassword = async (newPassword: string) => {
               isRecoveryLink ? (
                 <ResetPasswordPage />
               ) : user ? (
-                <>
-                  <Header
+                <div className="client-dashboard flex min-h-screen flex-col">
+                  <ClientDashboardHeader
                     tradingMode={tradingMode}
                     setTradingMode={handleTradingModeChange}
                     selectedPair={selectedPair}
@@ -970,7 +970,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     isAdmin={hasCrmAccess}
                   />
                   
-                  <main className="flex-1">
+                  <main className="client-dashboard-main flex-1">
                     {tradingMode === 'home' && (
                       <HomePage
                         currentBtcPrice={currentSelectedPairPrice}
@@ -996,7 +996,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     )}
                     
                     {tradingMode === 'futures' && (
-                      <div className="flex min-h-[calc(100vh-64px)] flex-col app-page-bg overflow-y-auto xl:h-[calc(100vh-64px)] xl:min-h-0 xl:flex-row xl:overflow-hidden">
+                      <div className="flex min-h-[calc(100vh-108px)] flex-col app-page-bg overflow-y-auto xl:h-[calc(100vh-108px)] xl:min-h-0 xl:flex-row xl:overflow-hidden">
                         {/* Left Column - Order Book */}
                         <div className="order-2 w-full shrink-0 border-t border-slate-700 max-h-[420px] overflow-hidden sm:max-h-[480px] xl:order-1 xl:h-full xl:w-80 xl:max-h-none xl:border-r xl:border-t-0">
                           <OrderBook 
@@ -1066,7 +1066,7 @@ const handleUpdatePassword = async (newPassword: string) => {
                     )}
                     
                     {tradingMode === 'cfd' && (
-                      <div className="flex h-[calc(100vh-64px)] flex-col app-page-bg overflow-y-auto lg:flex-row">
+                      <div className="flex min-h-[calc(100vh-108px)] flex-col app-page-bg overflow-y-auto lg:h-[calc(100vh-108px)] lg:flex-row">
                         {/* Left Column - Pair Details Panel (full width on mobile, fixed width on desktop) */}
                         <div className="hidden lg:block w-full lg:w-96 h-auto lg:h-full p-4 overflow-y-auto hide-scrollbar">
                           <div className="h-full rounded-2xl app-surface-primary">
@@ -1280,7 +1280,7 @@ const handleUpdatePassword = async (newPassword: string) => {
 
                   </main>
                   <SiteFooter />
-                </>
+                </div>
               ) : (
                 <LandingPage />
               )

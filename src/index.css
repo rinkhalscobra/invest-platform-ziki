@@ -314,6 +314,409 @@ body {
   top: 0 !important;
 }
 
+/* Institutional client terminal -------------------------------------------------
+   This layer is intentionally scoped to authenticated client pages so the CRM,
+   authentication flow, and public site keep their own visual identity. */
+.client-dashboard {
+  --terminal-bg: #070b12;
+  --terminal-panel: #0c121d;
+  --terminal-panel-raised: #101824;
+  --terminal-panel-muted: #0a1019;
+  --terminal-line: rgba(148, 163, 184, 0.14);
+  --terminal-line-strong: rgba(96, 165, 250, 0.28);
+  --terminal-accent: #3b82f6;
+  --terminal-accent-soft: rgba(59, 130, 246, 0.11);
+  min-height: 100vh;
+  background: var(--terminal-bg);
+  color: #e5e7eb;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "tnum" 1, "cv02" 1, "cv03" 1, "cv04" 1;
+}
+
+.client-dashboard .app-page-bg {
+  background-color: var(--terminal-bg);
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at 50% -20%, rgba(37, 99, 235, 0.09), transparent 42%);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+
+.client-dashboard .app-shell-bg {
+  background: rgba(7, 11, 18, 0.98);
+}
+
+.client-dashboard .app-surface-primary,
+.client-dashboard .app-surface-secondary,
+.client-dashboard .app-surface-raised {
+  border-color: var(--terminal-line);
+  background: linear-gradient(180deg, rgba(16, 24, 36, 0.98), rgba(11, 17, 27, 0.98));
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  backdrop-filter: none;
+}
+
+.client-dashboard .app-surface-muted {
+  border-color: rgba(148, 163, 184, 0.11);
+  background: rgba(10, 16, 25, 0.78);
+}
+
+.client-dashboard .app-surface-hover:hover {
+  border-color: rgba(96, 165, 250, 0.26);
+  background: #111b29;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+.client-dashboard .app-control,
+.client-dashboard .app-input {
+  border-color: rgba(148, 163, 184, 0.2);
+  background: #080e17;
+  box-shadow: none;
+}
+
+.client-dashboard .app-control:hover,
+.client-dashboard .app-input:focus {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: #0b1320;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.client-dashboard .app-action-primary,
+.client-dashboard .app-icon-tile {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.18);
+}
+
+.client-dashboard .app-action-soft {
+  border-color: rgba(96, 165, 250, 0.2);
+  background: rgba(59, 130, 246, 0.09);
+  color: #bfdbfe;
+}
+
+.client-dashboard .app-action-soft:hover {
+  border-color: rgba(96, 165, 250, 0.38);
+  background: rgba(59, 130, 246, 0.15);
+  color: #eff6ff;
+}
+
+.client-dashboard .app-dropdown {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: #0b121d;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+}
+
+.client-dashboard [class*="shadow-purple-"] {
+  box-shadow: none !important;
+}
+
+.client-dashboard [class~="scale-105"],
+.client-dashboard [class*="hover:scale-105"]:hover,
+.client-dashboard [class*="hover:scale-[1.01]"]:hover {
+  transform: none !important;
+}
+
+.client-dashboard [class*="text-purple-"] {
+  color: #93c5fd !important;
+}
+
+.client-dashboard [class*="border-purple-"] {
+  border-color: rgba(96, 165, 250, 0.28) !important;
+}
+
+.client-dashboard [class*="bg-purple-"] {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+
+.client-dashboard [class*="from-purple-"],
+.client-dashboard [class*="from-violet-"],
+.client-dashboard [class*="from-fuchsia-"] {
+  --tw-gradient-from: rgba(37, 99, 235, 0.92) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgba(37, 99, 235, 0) var(--tw-gradient-to-position) !important;
+}
+
+.client-dashboard [class*="to-purple-"],
+.client-dashboard [class*="to-violet-"],
+.client-dashboard [class*="to-fuchsia-"] {
+  --tw-gradient-to: rgba(14, 165, 233, 0.8) var(--tw-gradient-to-position) !important;
+}
+
+.client-dashboard h1,
+.client-dashboard h2,
+.client-dashboard h3 {
+  letter-spacing: -0.015em;
+}
+
+.client-dashboard table {
+  font-variant-numeric: tabular-nums;
+}
+
+.client-dashboard table thead {
+  background: rgba(2, 6, 23, 0.5);
+}
+
+.client-dashboard table th {
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.client-dashboard table td {
+  border-color: rgba(148, 163, 184, 0.1);
+}
+
+.client-dashboard input,
+.client-dashboard select,
+.client-dashboard button {
+  font-family: inherit;
+}
+
+.client-dashboard-main {
+  min-width: 0;
+  background: var(--terminal-bg);
+}
+
+.terminal-header {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(6, 10, 17, 0.97);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
+.terminal-account-bar {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem clamp(0.9rem, 2.2vw, 2rem);
+}
+
+.terminal-product-bar {
+  min-height: 44px;
+  align-items: center;
+  gap: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 0 clamp(0.9rem, 2.2vw, 2rem);
+  background: rgba(9, 14, 23, 0.92);
+}
+
+.terminal-nav-item {
+  position: relative;
+  display: inline-flex;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.48rem;
+  padding: 0 0.8rem;
+  color: #7c899c;
+  font-size: 0.78rem;
+  font-weight: 600;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.terminal-nav-item::after {
+  position: absolute;
+  right: 0.8rem;
+  bottom: -1px;
+  left: 0.8rem;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  content: "";
+}
+
+.terminal-nav-item:hover {
+  background: rgba(148, 163, 184, 0.045);
+  color: #dbeafe;
+}
+
+.terminal-nav-item-active {
+  color: #f8fafc;
+  background: rgba(59, 130, 246, 0.065);
+}
+
+.terminal-nav-item-active::after {
+  background: #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.55);
+}
+
+.terminal-balance-card,
+.terminal-profile-button,
+.terminal-instrument-button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.13);
+  border-radius: 0.65rem;
+  background: rgba(15, 23, 35, 0.7);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.terminal-balance-card {
+  padding: 0.48rem 0.68rem;
+}
+
+.terminal-profile-button {
+  padding: 0.35rem 0.48rem;
+}
+
+.terminal-instrument-button {
+  display: grid;
+  min-width: 274px;
+  grid-template-columns: minmax(0, 1fr) auto 14px;
+  align-self: center;
+  gap: 0.8rem;
+  border-radius: 0.55rem;
+  padding: 0.3rem 0.65rem;
+}
+
+.terminal-instrument-name {
+  min-width: 0;
+  text-align: left;
+}
+
+.terminal-instrument-label {
+  display: block;
+  color: #64748b;
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.terminal-instrument-symbol {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.25rem;
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-instrument-price {
+  color: #f8fafc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1;
+  text-align: right;
+}
+
+.terminal-instrument-price small {
+  display: block;
+  margin-top: 0.25rem;
+  color: #64748b;
+  font-size: 0.55rem;
+  font-weight: 500;
+}
+
+.terminal-balance-card:hover,
+.terminal-profile-button:hover,
+.terminal-instrument-button:hover {
+  border-color: rgba(96, 165, 250, 0.34);
+  background: rgba(17, 27, 41, 0.9);
+}
+
+.terminal-deposit-button {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(96, 165, 250, 0.45);
+  border-radius: 0.6rem;
+  padding: 0 0.85rem;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 650;
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.2);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.terminal-deposit-button:hover {
+  background: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.terminal-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.terminal-menu-item:hover {
+  background: rgba(148, 163, 184, 0.08);
+  color: #f8fafc;
+}
+
+.terminal-mobile-toggle {
+  display: inline-flex;
+  height: 40px;
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 0.6rem;
+  color: #94a3b8;
+}
+
+.terminal-mobile-menu {
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 0.85rem;
+  background: #080d15;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.terminal-mobile-nav-item {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.72rem;
+  background: rgba(15, 23, 35, 0.65);
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.terminal-mobile-nav-item-active {
+  border-color: rgba(96, 165, 250, 0.36);
+  background: rgba(37, 99, 235, 0.13);
+  color: #dbeafe;
+}
+
+@media (max-width: 640px) {
+  .terminal-account-bar {
+    min-height: 60px;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .client-dashboard .rounded-2xl {
+    border-radius: 0.75rem;
+  }
+
+  .terminal-instrument-button {
+    min-width: 0;
+  }
+}
+
 /* Custom range slider styling */
 input[type="range"].slider-orange {
   -webkit-appearance: none;

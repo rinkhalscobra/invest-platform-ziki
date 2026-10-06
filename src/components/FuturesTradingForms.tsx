@@ -359,7 +359,7 @@ const FuturesTradingForms: React.FC<FuturesTradingFormsProps> = ({
             </button>
           </div>
           
-          <div className="bg-gradient-to-r from-indigo-400 via-purple-400 to-fuchsia-400 bg-clip-text text-xl font-bold text-transparent sm:text-2xl">
+          <div className="font-mono text-xl font-semibold text-blue-300 sm:text-2xl">
             {leverage}x
           </div>
         </div>

@@ -502,36 +502,39 @@ const HomePage: React.FC<HomePageProps> = ({
   };
 
   const homeBackgroundClass = 'app-page-bg';
-  const primaryCardClass = 'rounded-2xl app-surface-raised';
+  const primaryCardClass = 'rounded-2xl app-surface-primary';
   const secondaryCardClass = 'rounded-2xl app-surface-primary';
   const secondaryItemCardClass = 'rounded-xl app-surface-muted';
-  const quickActionCardClass = 'w-full rounded-xl app-surface-raised app-surface-hover p-4 text-white transition-all duration-200 hover:scale-[1.01]';
+  const quickActionCardClass = 'w-full rounded-xl app-surface-muted app-surface-hover p-4 text-white transition-all duration-200';
   const quickActionCtaClass = 'mx-auto flex w-full items-center justify-center gap-2 rounded-xl app-action-soft px-6 py-3 font-semibold transition-all duration-300 sm:w-auto';
 
   return (
-    <div className={`mx-auto w-full px-4 py-4 sm:px-6 sm:py-6 lg:p-8 ${homeBackgroundClass}`}>
+    <div className={`mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 sm:py-6 lg:p-8 ${homeBackgroundClass}`}>
       {/* Giveaway Popups */}
       <GiveawayCampaignPopup forceShow={showCampaignPopup} />
       <GiveawayWinnerPopup forceShow={showWinnerPopup} />
       <GiveawayComingSoonPopup forceShow={showComingSoonPopup} />
 
       {/* Welcome Section */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="mb-1 text-2xl font-bold text-white sm:mb-2 sm:text-3xl">
+      <div className="mb-6 flex flex-col gap-4 border-b border-slate-800/80 pb-6 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-400">Portfolio overview</div>
+          <h1 className="text-2xl font-semibold text-white sm:text-3xl">
             {t('home.welcomeTitle')}
           </h1>
+          <p className="mt-2 text-sm text-slate-400">{t('home.welcomeSubtitle')}</p>
         </div>
-        <p className="text-sm text-slate-400 sm:text-base">
-          {t('home.welcomeSubtitle')}
-        </p>
+        <div className="flex w-fit items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 text-xs text-emerald-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          Account services operational
+        </div>
       </div>
       
       {/* Quick Stats */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:mb-8 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
         <div className={`${primaryCardClass} p-2.5 sm:p-3.5`}>
           <div className="mb-1 flex items-start gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 shadow-lg shadow-purple-500/25">
+            <div className="app-icon-tile flex h-9 w-9 items-center justify-center rounded-lg">
               <Wallet size={18} className="text-white" />
             </div>
             <div className="min-w-0">
@@ -562,7 +565,7 @@ const HomePage: React.FC<HomePageProps> = ({
         
         <div className={`${primaryCardClass} p-2.5 sm:p-3.5`}>
           <div className="mb-1 flex items-start gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 shadow-lg shadow-purple-500/25">
+            <div className="app-icon-tile flex h-9 w-9 items-center justify-center rounded-lg">
               <TrendingUp size={18} className="text-white" />
             </div>
             <div className="min-w-0">
@@ -580,7 +583,7 @@ const HomePage: React.FC<HomePageProps> = ({
         
         <div className={`${primaryCardClass} p-2.5 sm:p-3.5`}>
           <div className="mb-1 flex items-start gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 shadow-lg shadow-purple-500/25">
+            <div className="app-icon-tile flex h-9 w-9 items-center justify-center rounded-lg">
               <Bitcoin size={18} className="text-white" />
             </div>
             <div className="min-w-0">
@@ -599,17 +602,17 @@ const HomePage: React.FC<HomePageProps> = ({
         
         <div className={`${primaryCardClass} p-2.5 sm:p-3.5`}>
           <div className="mb-1 flex items-start gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 shadow-lg shadow-purple-500/25">
-              <BarChart3 size={18} className="text-white" />
+            <div className="app-icon-tile flex h-9 w-9 items-center justify-center rounded-lg">
+              <DollarSign size={18} className="text-white" />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] text-purple-100">Trading Volume</div>
-              <div className="text-lg font-bold text-white sm:text-xl" translate="no">$125,430.50</div>
+              <div className="text-[13px] text-purple-100">Cash Balance</div>
+              <div className="text-lg font-bold text-white sm:text-xl" translate="no">${usdtBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             </div>
           </div>
           <div className="mt-2.5 flex items-center justify-between gap-3 text-xs sm:text-sm">
-            <div className="text-purple-100/80">{getPeriodLabel()} Change</div>
-            <div className="text-white" translate="no">+12.5%</div>
+            <div className="text-purple-100/80">Settlement currency</div>
+            <div className="text-white" translate="no">USDT</div>
           </div>
         </div>
       </div>
@@ -723,14 +726,14 @@ const HomePage: React.FC<HomePageProps> = ({
                 <h3 className="text-lg font-bold text-white mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
-                    onClick={() => setTradingMode('spot')}
+                    onClick={() => setTradingMode('swap')}
                     className={quickActionCardClass}
                   >
                     <div className="flex items-center gap-3">
                       <Repeat size={20} />
                       <div className="min-w-0 text-left">
-                        <div className="font-semibold">Spot Trading</div>
-                        <div className="text-sm opacity-80">Buy & Sell Crypto</div>
+                        <div className="font-semibold">Convert assets</div>
+                        <div className="text-sm opacity-80">Swap crypto instantly</div>
                       </div>
                     </div>
                   </button>
@@ -749,14 +752,14 @@ const HomePage: React.FC<HomePageProps> = ({
                   </button>
                   
                   <button
-                    onClick={() => setTradingMode('binary')}
+                    onClick={() => setTradingMode('cfd')}
                     className={quickActionCardClass}
                   >
                     <div className="flex items-center gap-3">
                       <Activity size={20} />
                       <div className="min-w-0 text-left">
-                        <div className="font-semibold">Binary Options</div>
-                        <div className="text-sm opacity-80">Quick Predictions</div>
+                        <div className="font-semibold">CFD Markets</div>
+                        <div className="text-sm opacity-80">Forex, stocks and indices</div>
                       </div>
                     </div>
                   </button>

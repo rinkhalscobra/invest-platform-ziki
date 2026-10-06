@@ -533,13 +533,15 @@ const StakingPage: React.FC<StakingPageProps> = ({
     : [];
 
   return (
-    <div className={`min-h-screen p-8 ${homeBackgroundClass}`}>
+    <div className={`min-h-screen ${homeBackgroundClass}`}>
+      <div className="mx-auto max-w-[1600px] p-4 md:p-8">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 bg-clip-text text-transparent mb-2">
-            {t('staking.title')}
-          </h1>
+          <div>
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Earn portfolio yield</div>
+            <h1 className="mb-2 text-3xl font-semibold text-white">{t('staking.title')}</h1>
+          </div>
         </div>
         <p className="text-slate-400">
           {t('staking.subtitle')}
@@ -971,6 +973,8 @@ const StakingPage: React.FC<StakingPageProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
       </div>
 
       {/* Staking Confirmation Modal */}

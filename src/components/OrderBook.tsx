@@ -181,6 +181,28 @@ const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.ask
     ? displayOrderBook.asks[displayOrderBook.asks.length - 1].total
     : 0;
 
+  const bidPrice = currentMarket?.bid_price || currentPrice || 0;
+  const askPrice = currentMarket?.ask_price || currentPrice || 0;
+  const spread = askPrice > 0 && bidPrice > 0 ? Math.max(0, askPrice - bidPrice) : 0;
+  const midpoint = askPrice > 0 && bidPrice > 0 ? (askPrice + bidPrice) / 2 : currentPrice;
+  const spreadPercentage = midpoint > 0 ? (spread / midpoint) * 100 : 0;
+  const sessionHigh = currentMarket?.high_price_24h || currentPrice || 0;
+  const sessionLow = currentMarket?.low_price_24h || currentPrice || 0;
+  const sessionChange = currentMarket?.change_24h || 0;
+  const sessionVolume = currentMarket?.volume_24h || 0;
+  const rangePosition = sessionHigh > sessionLow
+    ? Math.min(100, Math.max(0, ((currentPrice - sessionLow) / (sessionHigh - sessionLow)) * 100))
+    : 50;
+  const updatedAt = currentMarket?.updated_at || currentMarket?.timestamp;
+
+  const formatCompactNumber = (value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return '—';
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
   return (
     <div className={`${panelSurfaceClass} flex h-full min-h-[320px] flex-col`} translate="no">
       {/* Header */}
@@ -222,7 +244,7 @@ const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.ask
 
       {/* Order Book Content */}
       <div
-        className={`flex-1 overflow-auto ${
+        className={`flex flex-1 flex-col overflow-auto ${
           tradingMode === 'futures'
             ? '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
             : '[scrollbar-color:#fb923c_#1e293b] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-800 [&::-webkit-scrollbar-thumb]:bg-orange-400 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-[2px] [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-slate-800'
@@ -278,6 +300,76 @@ const displayOrderBook = orderBook && orderBook.bids.length > 0 && orderBook.ask
             ))}
           </div>
         )}
+
+        <section className="flex min-h-[340px] flex-1 flex-col border-t border-slate-800/90 bg-slate-950/20 p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Instrument summary</div>
+              <div className="mt-1 text-sm font-semibold text-slate-200">{selectedPair.replace('USDT', '/USDT')}</div>
+            </div>
+            <div className={`rounded-full border px-2 py-1 text-[10px] font-semibold ${sessionChange >= 0 ? 'border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300' : 'border-rose-500/20 bg-rose-500/[0.06] text-rose-300'}`}>
+              {sessionChange >= 0 ? '+' : ''}{sessionChange.toFixed(2)}%
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-800 bg-slate-800">
+            <div className="bg-[#0a1019] p-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Bid</div>
+              <div className="mt-1 font-mono text-sm font-semibold text-emerald-400">{formatPrice(bidPrice)}</div>
+            </div>
+            <div className="bg-[#0a1019] p-3 text-right">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Ask</div>
+              <div className="mt-1 font-mono text-sm font-semibold text-rose-400">{formatPrice(askPrice)}</div>
+            </div>
+            <div className="bg-[#0a1019] p-3">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Spread</div>
+              <div className="mt-1 font-mono text-xs font-medium text-slate-200">{spread > 0 ? formatPrice(spread) : '—'}</div>
+            </div>
+            <div className="bg-[#0a1019] p-3 text-right">
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Spread %</div>
+              <div className="mt-1 font-mono text-xs font-medium text-slate-200">{spread > 0 ? `${spreadPercentage.toFixed(4)}%` : '—'}</div>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <span>24h range</span>
+              <span>Current position</span>
+            </div>
+            <div className="relative h-1.5 rounded-full bg-slate-800">
+              <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" style={{ width: `${rangePosition}%` }} />
+              <div className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#0a1019] bg-cyan-300" style={{ left: `${rangePosition}%` }} />
+            </div>
+            <div className="mt-2 flex justify-between font-mono text-[11px] text-slate-400">
+              <span>{formatPrice(sessionLow)}</span>
+              <span>{formatPrice(sessionHigh)}</span>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3 border-t border-slate-800/80 pt-4 text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">24h volume</span>
+              <span className="font-mono font-medium text-slate-200">{formatCompactNumber(sessionVolume)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">24h low / high</span>
+              <span className="font-mono text-[11px] text-slate-300">{formatPrice(sessionLow)} / {formatPrice(sessionHigh)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">Last update</span>
+              <span className="font-mono text-[11px] text-slate-300">
+                {updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Waiting for data'}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-auto pt-5">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-3 py-2 text-[10px] text-slate-400">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+              Quotes refresh from the shared market cache every two minutes
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* Footer */}

@@ -90,17 +90,12 @@ const SpinTheWheel: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.16),transparent_34%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.24),transparent_32%),radial-gradient(circle_at_bottom,rgba(147,51,234,0.16),transparent_42%)] p-4 md:p-8 overflow-hidden relative">
-      <div className="max-w-7xl mx-auto relative z-10 px-4">
-        <div className="text-center py-12">
-          <h1 className="text-5xl md:text-6xl font-black text-white mb-4" style={{
-            textShadow: '0 0 30px rgba(34, 211, 238, 0.8), 0 0 60px rgba(59, 130, 246, 0.6)',
-          }}>
-            {t('spinWheel.title')}
-          </h1>
-          <p className="text-xl text-cyan-300 font-medium">
-            {t('spinWheel.subtitle')}
-          </p>
+    <div className="min-h-screen app-page-bg p-4 md:p-8 overflow-hidden relative">
+      <div className="max-w-[1600px] mx-auto relative z-10 px-0 sm:px-4">
+        <div className="border-b border-slate-800/80 py-8 md:py-10">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Client rewards</div>
+          <h1 className="mb-3 text-3xl font-semibold text-white md:text-4xl">{t('spinWheel.title')}</h1>
+          <p className="max-w-2xl text-base text-slate-400">{t('spinWheel.subtitle')}</p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8 items-start">

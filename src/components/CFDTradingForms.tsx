@@ -562,7 +562,7 @@ const getLotSize = (symbol: string): number => {
             </button>
           </div>
 
-          <div className="text-orange-400 font-bold text-2xl bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
+          <div className="font-mono text-2xl font-semibold text-blue-300">
             {leverage}x
           </div>
         </div>
@@ -573,7 +573,7 @@ const getLotSize = (symbol: string): number => {
             <div className="flex-1 md:flex-initial md:min-w-[300px]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-xs">{t('common.leverage')}</span>
-                <span className="text-orange-400 font-bold text-sm">{leverage}x (Fixed)</span>
+                <span className="font-mono text-sm font-semibold text-blue-300">{leverage}x (Fixed)</span>
               </div>
               <div className="w-full h-2 rounded-lg bg-gradient-to-r from-indigo-500 to-fuchsia-500" />
               <div className="flex justify-center mt-1 text-xs text-slate-500">
@@ -584,7 +584,7 @@ const getLotSize = (symbol: string): number => {
             <div className="flex-1 md:flex-initial md:min-w-[300px]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-slate-400 text-xs">{t('common.leverage')}</span>
-                <span className="text-orange-400 font-bold text-sm">{leverage}x</span>
+                <span className="font-mono text-sm font-semibold text-blue-300">{leverage}x</span>
               </div>
               <input
                 type="range"

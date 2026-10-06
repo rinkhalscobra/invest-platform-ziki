@@ -450,23 +450,16 @@ const ArbitrageRobotPage: React.FC<ArbitrageRobotPageProps> = ({
   const glassSecondaryActionHoverClass = '';
 
   return (
-    <div className={`min-h-screen ${pageBackgroundClass} text-white relative overflow-hidden`}>
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/12 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/12 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/8 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
-      <div className="relative z-10 p-4 md:p-8">
+    <div className={`min-h-screen ${pageBackgroundClass} text-white`}>
+      <div className="mx-auto max-w-[1600px] p-4 md:p-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent flex items-center gap-3">
-              <Bot size={32} className="text-blue-400" />
-              {t('robot.title')}
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-blue-400">Automated strategies</div>
+            <h1 className="flex items-center gap-3 text-3xl font-semibold text-white">
+              <Bot size={28} className="text-blue-400" />{t('robot.title')}
             </h1>
-            <p className="text-slate-400">{t('robot.subtitle')}</p>
+            <p className="mt-2 text-slate-400">{t('robot.subtitle')}</p>
           </div>
 
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
