@@ -6,7 +6,9 @@ import {
   Network,
   RefreshCw,
   Save,
+  Search,
   ShieldCheck,
+  UserCog,
   UserPlus,
   UserRound,
   Users
@@ -72,12 +74,11 @@ const roleStyles: Record<CRMRole, string> = {
   client: 'border-slate-500/35 bg-slate-500/10 text-slate-300'
 };
 
-const requiredParentRoles: Partial<Record<CRMRole, CRMRole[]>> = {
-  retention: ['admin'],
-  manager: ['retention'],
-  agent: ['manager'],
-  client: ['agent']
-};
+const roleRank = (role: CRMRole) => crmRoles.indexOf(role);
+
+const allowedParentRoles = (role: CRMRole): CRMRole[] => (
+  role === 'admin' ? [] : crmRoles.filter(candidate => roleRank(candidate) < roleRank(role))
+);
 
 const emptyCreateForm = {
   firstName: '',
@@ -110,6 +111,8 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | CRMRole>('all');
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadHierarchy = useCallback(async () => {
@@ -130,6 +133,11 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
     setContext(nextContext);
     setUsers(payload.users || []);
     setRoleCounts(payload.role_counts || {});
+    setSelectedId(current => {
+      if (current && (payload.users || []).some(user => user.id === current)) return current;
+      if (!nextContext?.can_manage_hierarchy) return null;
+      return (payload.users || []).find(user => user.id !== nextContext.actor_id)?.id || null;
+    });
   }, []);
 
   useEffect(() => {
@@ -163,16 +171,41 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
   }, [users, usersById]);
 
   const parentCandidates = useMemo(() => {
-    const parentRoles = requiredParentRoles[selectedRole];
-    if (!parentRoles) return [];
+    const parentRoles = allowedParentRoles(selectedRole);
     return users.filter(user => parentRoles.includes(user.crm_role) && user.id !== selectedId);
   }, [selectedId, selectedRole, users]);
 
   const createParentCandidates = useMemo(() => {
-    const parentRoles = requiredParentRoles[createForm.role];
-    if (!parentRoles) return [];
+    const parentRoles = allowedParentRoles(createForm.role);
     return users.filter(user => parentRoles.includes(user.crm_role));
   }, [createForm.role, users]);
+
+  const selectedDirectReports = useMemo(
+    () => selectedId ? users.filter(user => user.crm_parent_id === selectedId) : [],
+    [selectedId, users]
+  );
+
+  const incompatibleDirectReports = useMemo(
+    () => selectedDirectReports.filter(user => roleRank(user.crm_role) <= roleRank(selectedRole)),
+    [selectedDirectReports, selectedRole]
+  );
+
+  const visibleUserIds = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    if (!normalizedSearch && roleFilter === 'all') return null;
+    const visible = new Set<string>();
+    users.forEach(user => {
+      const matchesSearch = !normalizedSearch || `${displayName(user)} ${user.email}`.toLowerCase().includes(normalizedSearch);
+      const matchesRole = roleFilter === 'all' || user.crm_role === roleFilter;
+      if (!matchesSearch || !matchesRole) return;
+      let current: HierarchyUser | undefined = user;
+      while (current && !visible.has(current.id)) {
+        visible.add(current.id);
+        current = current.crm_parent_id ? usersById.get(current.crm_parent_id) : undefined;
+      }
+    });
+    return visible;
+  }, [roleFilter, search, users, usersById]);
 
   useEffect(() => {
     if (selectedRole === 'admin') {
@@ -198,6 +231,16 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
     setSelectedPermissions(permissionsForRole(role));
   };
 
+  const selectUser = (user: HierarchyUser) => {
+    setSelectedId(user.id);
+    setSelectedRole(user.crm_role);
+    setSelectedParentId(user.crm_parent_id || '');
+    setSelectedPermissions({
+      ...permissionsForRole(user.crm_role),
+      ...(user.crm_permissions || {})
+    });
+  };
+
   const changeCreateRole = (role: CRMRole) => {
     setCreateForm(current => ({ ...current, role, parentId: '' }));
     setCreatePermissions(permissionsForRole(role));
@@ -206,8 +249,12 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
   const saveHierarchy = async () => {
     if (!selectedUser || !context?.can_manage_hierarchy) return;
     if (selectedRole !== 'admin' && selectedRole !== 'client' && !selectedParentId) {
-      const required = requiredParentRoles[selectedRole]?.map(role => crmRoleLabels[role]).join(' or ');
+      const required = allowedParentRoles(selectedRole).map(role => crmRoleLabels[role]).join(', ');
       setStatus({ type: 'error', text: `${crmRoleLabels[selectedRole]} requires a ${required}.` });
+      return;
+    }
+    if (incompatibleDirectReports.length > 0) {
+      setStatus({ type: 'error', text: `Reassign ${incompatibleDirectReports.length} incompatible direct report${incompatibleDirectReports.length === 1 ? '' : 's'} before changing this role.` });
       return;
     }
     setSaving(true);
@@ -308,18 +355,15 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
   const renderNode = (user: HierarchyUser, depth = 0): React.ReactNode => {
     const children = childrenByParent.get(user.id) || [];
     const isCurrentUser = user.id === context?.actor_id;
+    if (visibleUserIds && !visibleUserIds.has(user.id)) return null;
     return (
       <React.Fragment key={user.id}>
         <div
-          className={`group grid min-w-[760px] grid-cols-[minmax(270px,1fr)_190px_130px_150px] items-center gap-3 border-b border-slate-800/80 px-4 py-3 transition hover:bg-white/[0.025] ${selectedId === user.id ? 'bg-purple-500/[0.08]' : ''}`}
+          className={`group grid min-w-[900px] grid-cols-[minmax(300px,1fr)_150px_115px_260px] items-center gap-3 border-b border-slate-800/80 px-4 py-3 transition hover:bg-white/[0.025] ${selectedId === user.id ? 'bg-purple-500/[0.08]' : ''}`}
         >
           <div className="flex min-w-0 items-center" style={{ paddingLeft: `${Math.min(depth, 4) * 30}px` }}>
             {depth > 0 && <div className="mr-3 h-px w-5 shrink-0 bg-slate-700" />}
-            <button
-              type="button"
-              onClick={() => context?.can_manage_hierarchy && setSelectedId(user.id)}
-              className="flex min-w-0 items-center gap-3 text-left"
-            >
+            <div className="flex min-w-0 items-center gap-3 text-left">
               <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${roleStyles[user.crm_role]}`}>
                 {user.crm_role === 'admin' ? <ShieldCheck size={17} /> : <UserRound size={17} />}
               </span>
@@ -330,11 +374,16 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                 </span>
                 <span className="block truncate text-xs text-slate-500">{user.email}</span>
               </span>
-            </button>
+            </div>
           </div>
           <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${roleStyles[user.crm_role]}`}>{crmRoleLabels[user.crm_role]}</span></div>
           <div className="text-sm text-slate-300"><span className="font-semibold text-white">{user.direct_reports || 0}</span> direct</div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {context?.can_manage_hierarchy && !isCurrentUser && (
+              <button type="button" onClick={() => selectUser(user)} className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition ${selectedId === user.id ? 'border-purple-400 bg-purple-500/15 text-purple-200' : 'border-slate-700 text-slate-300 hover:border-purple-500/50 hover:text-white'}`}>
+                <UserCog size={14} />{selectedId === user.id ? 'Selected' : 'Manage'}
+              </button>
+            )}
             {!isCurrentUser && (
               <button type="button" onClick={() => onOpenWorkspace(user.id)} className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-300 hover:border-purple-500/50 hover:text-white">
                 Open CRM <ChevronRight size={14} />
@@ -357,7 +406,7 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
         <div className="flex flex-col gap-4 border-b border-slate-700/70 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-white"><Network className="text-purple-400" size={21} /><h2 className="text-lg font-bold">User hierarchy</h2></div>
-            <p className="mt-1 text-sm text-slate-400">Access flows upward through assigned branches and never sideways.</p>
+            <p className="mt-1 text-sm text-slate-400">Assign each user to any higher-level role. Levels may be skipped when your structure requires it.</p>
           </div>
           <div className="flex items-center gap-3">
             {context && <span className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${roleStyles[context.actor_role]}`}>Signed in as {crmRoleLabels[context.actor_role]}</span>}
@@ -396,7 +445,10 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                 <select value={createForm.parentId} onChange={event => setCreateForm(current => ({ ...current, parentId: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
                   {createForm.role === 'client' && <option value="">Unassigned client</option>}
                   {createForm.role !== 'client' && <option value="">Select reporting manager</option>}
-                  {createParentCandidates.map(user => <option key={user.id} value={user.id}>{displayName(user)} — {crmRoleLabels[user.crm_role]}</option>)}
+                  {allowedParentRoles(createForm.role).map(role => {
+                    const candidates = createParentCandidates.filter(user => user.crm_role === role);
+                    return candidates.length > 0 ? <optgroup key={role} label={crmRoleLabels[role]}>{candidates.map(user => <option key={user.id} value={user.id}>{displayName(user)} — {user.email}</option>)}</optgroup> : null;
+                  })}
                 </select>
               </label>
             )}
@@ -420,15 +472,22 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
 
       <div className={`grid gap-5 ${context?.can_manage_hierarchy ? '2xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}>
         <section className="overflow-hidden rounded-2xl border border-slate-700/70 bg-slate-900/75 shadow-xl shadow-black/10">
-          <div className="flex items-center justify-between border-b border-slate-700/70 px-5 py-4">
-            <div><h3 className="font-semibold text-white">Branch structure</h3><p className="mt-1 text-xs text-slate-500">Indented users report to the nearest user above them.</p></div>
-            <div className="flex items-center gap-2 text-xs text-slate-400"><GitBranch size={15} />{users.length} visible users</div>
+          <div className="border-b border-slate-700/70 px-5 py-4">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div><h3 className="font-semibold text-white">Branch structure</h3><p className="mt-1 text-xs text-slate-500">Indented users report to the nearest user above them. Use Manage to edit any account.</p></div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="relative min-w-[230px]"><Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search name or email" className="w-full rounded-lg border border-slate-700 bg-slate-950/60 py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-purple-500" /></label>
+                <select value={roleFilter} onChange={event => setRoleFilter(event.target.value as 'all' | CRMRole)} className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-xs text-white outline-none focus:border-purple-500"><option value="all">All roles</option>{crmRoles.map(role => <option key={role} value={role}>{crmRoleLabels[role]}</option>)}</select>
+                <div className="flex items-center justify-center gap-2 whitespace-nowrap text-xs text-slate-400"><GitBranch size={15} />{visibleUserIds ? visibleUserIds.size : users.length} visible</div>
+              </div>
+            </div>
           </div>
           <div className="overflow-x-auto">
-            <div className="grid min-w-[760px] grid-cols-[minmax(270px,1fr)_190px_130px_150px] gap-3 border-b border-slate-800 bg-slate-950/35 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              <span>User and reporting line</span><span>Access role</span><span>Reports</span><span className="text-right">Workspace</span>
+            <div className="grid min-w-[900px] grid-cols-[minmax(300px,1fr)_150px_115px_260px] gap-3 border-b border-slate-800 bg-slate-950/35 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <span>User and reporting line</span><span>Access role</span><span>Reports</span><span className="text-right">Actions</span>
             </div>
             {(childrenByParent.get('root') || []).map(user => renderNode(user))}
+            {visibleUserIds?.size === 0 && <div className="px-5 py-10 text-center text-sm text-slate-500">No users match this search and role filter.</div>}
           </div>
         </section>
 
@@ -449,15 +508,19 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                   </select>
                 </label>
                 {selectedRole !== 'admin' && (
-                  <label className="block text-xs text-slate-400">Reports to {requiredParentRoles[selectedRole] ? `(${requiredParentRoles[selectedRole]?.map(role => crmRoleLabels[role]).join(' or ')})` : ''}
+                  <label className="block text-xs text-slate-400">Reports to <span className="text-slate-600">({allowedParentRoles(selectedRole).map(role => crmRoleLabels[role]).join(', ')})</span>
                     <select value={selectedParentId} onChange={event => setSelectedParentId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-white outline-none focus:border-purple-500">
                       {selectedRole === 'client' && <option value="">Unassigned client</option>}
                       {selectedRole !== 'client' && <option value="">Select reporting manager</option>}
-                      {parentCandidates.map(user => <option key={user.id} value={user.id}>{displayName(user)} — {user.email}</option>)}
+                      {allowedParentRoles(selectedRole).map(role => {
+                        const candidates = parentCandidates.filter(user => user.crm_role === role);
+                        return candidates.length > 0 ? <optgroup key={role} label={crmRoleLabels[role]}>{candidates.map(user => <option key={user.id} value={user.id}>{displayName(user)} — {user.email}</option>)}</optgroup> : null;
+                      })}
                     </select>
                   </label>
                 )}
-                <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.07] p-3 text-xs leading-5 text-purple-200/80">{roleDescriptions[selectedRole]}. Parallel branches remain isolated.</div>
+                <div className="rounded-xl border border-purple-500/20 bg-purple-500/[0.07] p-3 text-xs leading-5 text-purple-200/80">{roleDescriptions[selectedRole]}. This user may report to any role above {crmRoleLabels[selectedRole]}; parallel branches remain isolated.</div>
+                {incompatibleDirectReports.length > 0 && <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">This role would conflict with {incompatibleDirectReports.length} direct report{incompatibleDirectReports.length === 1 ? '' : 's'}: {incompatibleDirectReports.map(displayName).join(', ')}. Reassign those users first.</div>}
                 <div>
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Permissions</div>
                   <div className="space-y-2">
@@ -469,7 +532,7 @@ const CRMHierarchyPanel: React.FC<CRMHierarchyPanelProps> = ({
                     ))}
                   </div>
                 </div>
-                <button type="button" onClick={() => void saveHierarchy()} disabled={saving || !reason.trim() || (selectedRole !== 'admin' && selectedRole !== 'client' && !selectedParentId)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-40">
+                <button type="button" onClick={() => void saveHierarchy()} disabled={saving || !reason.trim() || incompatibleDirectReports.length > 0 || (selectedRole !== 'admin' && selectedRole !== 'client' && !selectedParentId)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-40">
                   {saving ? <Loader2 className="animate-spin" size={17} /> : <Save size={17} />}Save hierarchy assignment
                 </button>
               </div>

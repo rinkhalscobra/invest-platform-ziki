@@ -67,6 +67,7 @@ Deno.serve(async (request: Request) => {
       const role = body.role?.trim() || "client";
       const parentUserId = body.parent_user_id?.trim() || null;
       const allowedRoles = ["admin", "retention", "manager", "agent", "client"];
+      const roleRanks: Record<string, number> = { admin: 0, retention: 1, manager: 2, agent: 3, client: 4 };
       const permissionKeys = [
         "crm.view", "customers.manage", "wallet.manage", "trading.manage", "robot.manage",
         "deposits.review", "support.manage", "notifications.send", "audit.view",
@@ -106,10 +107,7 @@ Deno.serve(async (request: Request) => {
           .eq("id", parentUserId)
           .single();
         if (parentError || !parent) return json({ error: "Reporting manager was not found" }, 400);
-        const validParent = (role === "retention" && parent.crm_role === "admin")
-          || (role === "manager" && parent.crm_role === "retention")
-          || (role === "agent" && parent.crm_role === "manager")
-          || (role === "client" && parent.crm_role === "agent");
+        const validParent = roleRanks[String(parent.crm_role)] < roleRanks[role];
         if (!validParent) return json({ error: "The selected reporting manager is not valid for this role" }, 400);
         if (actorProfile?.crm_role !== "admin") {
           const { data: parentAccessible, error: accessError } = await admin.rpc("crm_can_access", {
