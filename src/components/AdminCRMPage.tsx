@@ -16,6 +16,7 @@ import {
   Landmark,
   LayoutDashboard,
   Loader2,
+  MessageSquare,
   Network,
   Pencil,
   ReceiptText,
@@ -36,7 +37,7 @@ import CRMHierarchyPanel, { CRMRole } from './CRMHierarchyPanel';
 import { CRMPermission, permissionsForRole } from '../lib/crmPermissions';
 
 type JsonRow = Record<string, unknown>;
-type CRMTab = 'dashboard' | 'profile' | 'wallet' | 'swap' | 'futures' | 'cfd' | 'prop' | 'robot' | 'events' | 'staking' | 'wheel' | 'deposits' | 'referrals' | 'support' | 'notifications' | 'audit';
+type CRMTab = 'dashboard' | 'profile' | 'comments' | 'wallet' | 'swap' | 'futures' | 'cfd' | 'prop' | 'robot' | 'events' | 'staking' | 'wheel' | 'deposits' | 'referrals' | 'support' | 'notifications' | 'audit';
 
 interface AdminUser extends JsonRow {
   id: string;
@@ -541,6 +542,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   useEffect(() => {
     setNewPassword('');
     setDeleteConfirmation('');
+    setNote('');
     if (selectedUserId) void loadWorkspace(selectedUserId);
     else setWorkspace(null);
   }, [loadWorkspace, selectedUserId]);
@@ -663,14 +665,22 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
     return { error };
   }, 'Robot profit credited');
 
-  const addNote = () => runMutation('note', async () => {
+  const addNote = () => {
+    const comment = note.trim();
+    if (!selectedUserId || !comment) return;
+    if (comment.length > 5000) {
+      setMessage({ type: 'error', text: 'Client comments cannot exceed 5,000 characters.' });
+      return;
+    }
+    void runMutation('note', async () => {
     const { error } = await supabase.rpc('admin_add_user_note', {
       p_target_user_id: selectedUserId,
-      p_note: note
+      p_note: comment
     });
     if (!error) setNote('');
     return { error };
-  }, 'Internal note added');
+    }, 'Comment added to the client record');
+  };
 
   const sendNotification = () => runMutation('notification', async () => {
     const { error } = await supabase.rpc('admin_send_notification', {
@@ -844,6 +854,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   const tabs = useMemo<Array<{ key: CRMTab; label: string; icon: React.ElementType; permission: CRMPermission }>>(() => [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'crm.view' },
     { key: 'profile', label: 'Profile', icon: UserCog, permission: 'customers.manage' },
+    { key: 'comments', label: 'Comments', icon: MessageSquare, permission: 'customers.manage' },
     { key: 'wallet', label: 'Wallet', icon: Wallet, permission: 'wallet.manage' },
     { key: 'swap', label: 'Swap', icon: RefreshCw, permission: 'trading.manage' },
     { key: 'futures', label: 'Futures', icon: TrendingUp, permission: 'trading.manage' },
@@ -880,6 +891,13 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
   }
 
   const profile = workspace?.profile;
+
+  const commentAuthor = (comment: JsonRow) => {
+    const authorId = asText(comment.admin_id);
+    const author = users.find(user => user.id === authorId);
+    if (author) return `${displayName(author)}${authorId === currentAdminId ? ' (you)' : ''}`;
+    return authorId === currentAdminId ? 'You' : 'CRM team member';
+  };
 
   const managedSection = (title: string, table: string, rows: JsonRow[], removable = true) => (
     <RecordSection
@@ -1018,7 +1036,7 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
                   <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-800 pt-4">
                     {tabs.map(item => {
                       const Icon = item.icon;
-                      return <button key={item.key} onClick={() => setTab(item.key)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm ${tab === item.key ? 'bg-purple-500 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Icon size={15} />{item.label}</button>;
+                       return <button key={item.key} onClick={() => setTab(item.key)} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm ${tab === item.key ? 'bg-purple-500 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Icon size={15} />{item.label}{item.key === 'comments' && (workspace.notes || []).length > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${tab === 'comments' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-300'}`}>{workspace.notes.length}</span>}</button>;
                     })}
                   </div>
                 </div>
@@ -1100,6 +1118,51 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
                         </>
                       )}
                     </section>}
+                  </div>
+                )}
+
+                {tab === 'comments' && (
+                  <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.75fr)_minmax(0,1.25fr)]">
+                    <section className={`${panelClass} h-fit p-5`}>
+                      <div className="flex items-center gap-2 text-white"><MessageSquare size={19} className="text-purple-400" /><h3 className="font-semibold">Leave a client comment</h3></div>
+                      <p className="mb-4 mt-1 text-xs leading-5 text-slate-500">Internal CRM comment about this client. It is visible only to authorized team members in this hierarchy branch.</p>
+                      <textarea
+                        rows={8}
+                        maxLength={5000}
+                        value={note}
+                        onChange={event => setNote(event.target.value)}
+                        onKeyDown={event => {
+                          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                            event.preventDefault();
+                            addNote();
+                          }
+                        }}
+                        className={fieldClass}
+                        placeholder="Write a comment about this client's account, follow-up, preferences, or status..."
+                      />
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-500"><span>Ctrl/⌘ + Enter to save</span><span>{note.length.toLocaleString()} / 5,000</span></div>
+                      <button onClick={addNote} disabled={saving !== null || !note.trim()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-40">
+                        {saving === 'note' ? <Loader2 className="animate-spin" size={18} /> : <MessageSquare size={18} />}Add comment
+                      </button>
+                    </section>
+                    <section className={`${panelClass} overflow-hidden`}>
+                      <div className="flex items-center justify-between border-b border-slate-700/70 px-5 py-4"><div><h3 className="font-semibold text-white">Client comment history</h3><p className="mt-1 text-xs text-slate-500">Newest comments appear first.</p></div><span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">{(workspace.notes || []).length}</span></div>
+                      {(workspace.notes || []).length === 0 ? (
+                        <div className="px-5 py-14 text-center"><MessageSquare className="mx-auto mb-3 text-slate-700" size={30} /><p className="text-sm text-slate-500">No comments have been added to this client yet.</p></div>
+                      ) : (
+                        <div className="max-h-[640px] divide-y divide-slate-800 overflow-y-auto">
+                          {(workspace.notes || []).map(comment => (
+                            <article key={asText(comment.id)} className="p-5">
+                              <div className="mb-3 flex items-start justify-between gap-4">
+                                <div className="flex min-w-0 items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-500/15 text-xs font-bold text-purple-300">{commentAuthor(comment).slice(0, 1).toUpperCase()}</span><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{commentAuthor(comment)}</div><div className="text-xs text-slate-500">Internal CRM comment</div></div></div>
+                                <time className="shrink-0 text-xs text-slate-500" dateTime={asText(comment.created_at)}>{dateTime(comment.created_at)}</time>
+                              </div>
+                              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{asText(comment.note)}</p>
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </section>
                   </div>
                 )}
 
@@ -1249,10 +1312,6 @@ const AdminCRMPage: React.FC<AdminCRMPageProps> = ({ hasAccess, isAdmin }) => {
                     </section>
                     {managedSection('Support conversations', 'conversations', workspace.conversations)}
                     <RecordSection title="Conversation messages" rows={(workspace.support_messages || []).filter(item => !supportConversationId || asText(item.conversation_id) === supportConversationId)} />
-                    <div className="grid gap-5 xl:grid-cols-2">
-                      <section className={`${panelClass} p-5`}><h3 className="font-semibold text-white">Internal CRM note</h3><p className="mb-3 mt-1 text-xs text-slate-500">Visible only to authorized CRM users in this branch.</p><textarea rows={5} value={note} onChange={event => setNote(event.target.value)} className={fieldClass} placeholder="Add an internal note..." /><button onClick={addNote} disabled={saving !== null || !note.trim()} className="mt-3 w-full rounded-xl bg-slate-700 px-4 py-2.5 font-semibold text-white disabled:opacity-50">Add note</button></section>
-                      <RecordSection title="Internal notes" rows={workspace.notes || []} />
-                    </div>
                   </div>
                 )}
 
