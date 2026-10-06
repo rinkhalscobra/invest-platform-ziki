@@ -12,7 +12,7 @@ Deno.serve(async () => {
       body: JSON.stringify({
         action: "quotes",
         instruments: ALL_MARKET_INSTRUMENTS,
-        maxAgeSeconds: 110,
+        maxAgeSeconds: 25,
         refreshKey: "all-active-markets",
         includeItems: false,
       }),

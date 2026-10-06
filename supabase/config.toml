@@ -19,3 +19,7 @@ verify_jwt = false
 # pg_cron calls this worker without a user JWT. API-credit protection is
 # enforced by the atomic refresh lease inside cfd-market-data.
 verify_jwt = false
+
+[functions.market-stream]
+# Browser WebSocket clients authenticate in their first encrypted socket frame.
+verify_jwt = false

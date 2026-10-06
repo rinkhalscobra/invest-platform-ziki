@@ -302,14 +302,18 @@ const handleUpdatePassword = async (newPassword: string) => {
   
   // Get current price from ticker or market data
   const currentSelectedPairPrice = useMemo(() => {
-    const ticker = (marketData || []).find(t => t.symbol === selectedPair);
+    const cryptoPrice = getBybitPrice(selectedPair);
+    if (cryptoPrice > 0) {
+      return cryptoPrice;
+    }
+
     const marketPrice = (marketData || []).find(data => data.symbol === selectedPair)?.price;
     if (marketPrice && marketPrice > 0) {
       return marketPrice;
     }
     
     return 0;
-  }, [selectedPair, marketData]);
+  }, [selectedPair, marketData, getBybitPrice]);
 
   // Define ticker variable for compatibility
   const ticker = (marketData || []).find(data => data.symbol === selectedPair);
@@ -322,15 +326,14 @@ const handleUpdatePassword = async (newPassword: string) => {
       return bybitPrice;
     }
 
-    // Strategy 2: Try snapshot data (stable fallback)
-    const snapshotPrice = getSnapshotPriceBySymbol(symbol);
-    if (snapshotPrice > 0) {
-      return snapshotPrice;
+    // Strategy 2: Use the shared live Twelve Data stream.
+    const dbData = (marketData || []).find(data => data.symbol === symbol);
+    if (dbData?.price && dbData.price > 0) {
+      return dbData.price;
     }
 
-    // Strategy 3: Fallback to database market data
-    const dbData = (marketData || []).find(data => data.symbol === symbol);
-    return dbData?.price || 0;
+    // Strategy 3: Fall back to the last stable Supabase snapshot.
+    return getSnapshotPriceBySymbol(symbol);
   }, [getBybitPrice, getSnapshotPriceBySymbol, marketData]);
 
   // Get current BTC price from combined data using the same strategy

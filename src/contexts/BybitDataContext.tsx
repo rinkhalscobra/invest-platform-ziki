@@ -1,9 +1,9 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 import { TOP_CRYPTO_PAIRS } from '../constants/tradingPairs';
-import { supabase } from '../lib/supabaseClient';
+import { useMarketData } from './MarketDataContext';
 
-// The exported names are retained for component compatibility; all values in
-// this context now come from the shared Supabase market cache.
+// The exported names are retained for component compatibility. Crypto prices
+// now use the same paid Twelve Data WebSocket as every other market.
 
 type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
 type PriceDirection = 'up' | 'down' | 'neutral';
@@ -18,11 +18,6 @@ interface CryptoTickerData {
   ask_price: number;
 }
 
-interface CachedMarketRow extends CryptoTickerData {
-  symbol: string;
-  data_provider?: string;
-}
-
 interface BybitDataContextType {
   prices: Map<string, number>;
   isConnected: boolean;
@@ -33,99 +28,57 @@ interface BybitDataContextType {
 }
 
 const BybitDataContext = createContext<BybitDataContextType | undefined>(undefined);
-const CRYPTO_SYMBOLS = TOP_CRYPTO_PAIRS.filter(pair => pair.active).map(pair => pair.symbol);
-const SUPABASE_PRICE_REFRESH_MS = 2 * 60 * 1000;
-
-const toTicker = (row: Partial<CachedMarketRow>): CryptoTickerData | null => {
-  const price = Number(row.price);
-  if (!Number.isFinite(price) || price <= 0) return null;
-  return {
-    price,
-    change_24h: Number(row.change_24h) || 0,
-    high_price_24h: Number(row.high_price_24h) || 0,
-    low_price_24h: Number(row.low_price_24h) || 0,
-    volume_24h: Number(row.volume_24h) || 0,
-    bid_price: Number(row.bid_price) || price,
-    ask_price: Number(row.ask_price) || price,
-  };
-};
+const CRYPTO_SYMBOLS = new Set(TOP_CRYPTO_PAIRS.filter(pair => pair.active).map(pair => pair.symbol));
 
 export const BybitDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [prices, setPrices] = useState<Map<string, number>>(new Map());
-  const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
-  const tickerDataRef = useRef<Map<string, CryptoTickerData>>(new Map());
-  const priceDirectionsRef = useRef<Map<string, PriceDirection>>(new Map());
+  const { marketData, connectionState, isConnected } = useMarketData();
   const previousPricesRef = useRef<Map<string, number>>(new Map());
+  const priceDirectionsRef = useRef<Map<string, PriceDirection>>(new Map());
 
-  const applyRows = useCallback((rows: CachedMarketRow[]) => {
-    if (rows.length === 0) return;
-    setPrices(previous => {
-      const next = new Map(previous);
-      for (const row of rows) {
-        const ticker = toTicker(row);
-        if (!ticker) continue;
-        const oldPrice = previousPricesRef.current.get(row.symbol) || next.get(row.symbol) || 0;
-        priceDirectionsRef.current.set(
-          row.symbol,
-          oldPrice === 0 || ticker.price === oldPrice ? 'neutral' : ticker.price > oldPrice ? 'up' : 'down'
-        );
-        previousPricesRef.current.set(row.symbol, ticker.price);
-        tickerDataRef.current.set(row.symbol, ticker);
-        next.set(row.symbol, ticker.price);
-      }
-      return next;
-    });
-  }, []);
+  const cryptoData = useMemo(() => {
+    const tickers = new Map<string, CryptoTickerData>();
+    const prices = new Map<string, number>();
 
-  const loadDatabaseFallback = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('market_data')
-        .select('symbol, price, change_24h, high_price_24h, low_price_24h, volume_24h, bid_price, ask_price, data_provider')
-        .in('symbol', CRYPTO_SYMBOLS)
-        .eq('data_provider', 'twelve_data');
-      if (error) throw error;
-      if (data?.length) {
-        applyRows(data as CachedMarketRow[]);
-        setConnectionState('connected');
-      } else {
-        setConnectionState('disconnected');
+    for (const item of marketData) {
+      if (!CRYPTO_SYMBOLS.has(item.symbol) || !Number.isFinite(item.price) || item.price <= 0) continue;
+      const previousPrice = previousPricesRef.current.get(item.symbol);
+      if (previousPrice === undefined) {
+        priceDirectionsRef.current.set(item.symbol, 'neutral');
+      } else if (previousPrice !== item.price) {
+        priceDirectionsRef.current.set(item.symbol, item.price > previousPrice ? 'up' : 'down');
       }
-    } catch {
-      setConnectionState('disconnected');
+      previousPricesRef.current.set(item.symbol, item.price);
+      prices.set(item.symbol, item.price);
+      tickers.set(item.symbol, {
+        price: item.price,
+        change_24h: item.change_24h || 0,
+        high_price_24h: item.high_price_24h || 0,
+        low_price_24h: item.low_price_24h || 0,
+        volume_24h: item.volume_24h || 0,
+        bid_price: item.bid_price || item.price,
+        ask_price: item.ask_price || item.price,
+      });
     }
-  }, [applyRows]);
 
-  useEffect(() => {
-    void loadDatabaseFallback();
-    const interval = window.setInterval(
-      () => void loadDatabaseFallback(),
-      SUPABASE_PRICE_REFRESH_MS
-    );
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') void loadDatabaseFallback();
-    };
-    const handleOnline = () => void loadDatabaseFallback();
-    const handleOffline = () => setConnectionState('disconnected');
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [loadDatabaseFallback]);
+    return { prices, tickers };
+  }, [marketData]);
 
-  const getPriceBySymbol = useCallback((symbol: string) => prices.get(symbol.toUpperCase()) || 0, [prices]);
-  const getPriceDirection = useCallback((symbol: string) => priceDirectionsRef.current.get(symbol.toUpperCase()) || 'neutral', []);
-  const getCryptoDataBySymbol = useCallback((symbol: string) => tickerDataRef.current.get(symbol.toUpperCase()) || null, []);
+  const getPriceBySymbol = useCallback((symbol: string) => (
+    cryptoData.prices.get(symbol.toUpperCase()) || 0
+  ), [cryptoData.prices]);
+
+  const getPriceDirection = useCallback((symbol: string) => (
+    priceDirectionsRef.current.get(symbol.toUpperCase()) || 'neutral'
+  ), []);
+
+  const getCryptoDataBySymbol = useCallback((symbol: string) => (
+    cryptoData.tickers.get(symbol.toUpperCase()) || null
+  ), [cryptoData.tickers]);
 
   return (
     <BybitDataContext.Provider value={{
-      prices,
-      isConnected: connectionState === 'connected',
+      prices: cryptoData.prices,
+      isConnected,
       connectionState,
       getPriceBySymbol,
       getPriceDirection,

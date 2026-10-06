@@ -49,7 +49,7 @@ const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.
 });
 const MAX_INSTRUMENTS = 250;
 const QUOTE_BATCH_SIZE = 50;
-const SHARED_CACHE_SECONDS = 110;
+const SHARED_CACHE_SECONDS = 25;
 
 const providerOverrides: Record<string, string> = {
   "WTICO/USD": "WTI/USD",

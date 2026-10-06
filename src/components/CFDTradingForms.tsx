@@ -58,7 +58,7 @@ const CFDTradingForms: React.FC<CFDTradingFormsProps> = ({
   onCFDTrade
 }) => {
   const { t } = useTranslation();
-  const { getSnapshotPriceBySymbol, refreshSnapshot, lastSnapshotTime, isConnected: isLiveDataConnected, marketData } = useMarketData();
+  const { getPriceBySymbol } = useMarketData();
   const [marginType, setMarginType] = useState<'isolated' | 'cross'>('isolated');
   const isCfdSurface = surfaceVariant === 'cfd';
   const panelSurfaceClass = isCfdSurface
@@ -111,12 +111,12 @@ const CFDTradingForms: React.FC<CFDTradingFormsProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Get current price for the selected CFD instrument using snapshot
+  // Use the live stream price for display, calculations, and market orders.
+  // The prop remains the cached fallback while the stream reconnects.
   const getCurrentPriceForCFD = useCallback(() => {
-    // Use snapshot price for stable trading experience
-    const snapshotPrice = getSnapshotPriceBySymbol(selectedPair);
-    return snapshotPrice > 0 ? snapshotPrice : currentPrice;
-  }, [selectedPair, getSnapshotPriceBySymbol, currentPrice]);
+    const streamPrice = getPriceBySymbol(selectedPair);
+    return streamPrice > 0 ? streamPrice : currentPrice;
+  }, [selectedPair, getPriceBySymbol, currentPrice]);
 
   const livePairPrice = getCurrentPriceForCFD();
   const selectedInstrument = CFD_INSTRUMENTS.find(item => item.symbol === selectedPair);

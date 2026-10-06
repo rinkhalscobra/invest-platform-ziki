@@ -31,7 +31,7 @@ interface MarketBar {
 
 const intervals = ['1min', '5min', '15min', '1h', '1day'] as const;
 type ChartInterval = typeof intervals[number];
-const SUPABASE_CHART_REFRESH_MS = 2 * 60 * 1000;
+const SUPABASE_CHART_REFRESH_MS = 30 * 1000;
 
 const getInstrumentType = (symbol: string) => {
   if (TOP_CRYPTO_PAIRS.some(item => item.symbol === symbol) || symbol.endsWith('USDT')) return 'crypto';
@@ -131,7 +131,7 @@ const TradingChart: React.FC<TradingChartProps> = ({ selectedPair, backgroundVar
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 px-4 py-2.5">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          Live market data · refreshed every 2 minutes
+          Live market data · refreshed every 30 seconds
         </div>
         <div className="flex gap-1">
           {intervals.map(value => (
